@@ -46,3 +46,10 @@ Thumbs.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local debug / fix notes
+*_FIX*.md
+*_SUMMARY*.md
+*_STATUS*.md
+*_PROGRESS*.md
+RELEASE_*.md
