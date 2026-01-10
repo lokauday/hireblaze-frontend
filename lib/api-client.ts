@@ -3,6 +3,8 @@
  * Handles authentication, error handling, and request/response transformation.
  */
 
+import { isDemoMode, getDemoUsage, getDemoDocuments, getDemoJobs, getDemoHistory } from './demo-mode'
+
 // Get base URL at runtime (not build time) with validation
 function getBaseURL(): string {
   // Access env var at runtime (works in both server and client)
@@ -47,6 +49,75 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
+  // In demo mode, return mock data for common endpoints
+  if (isDemoMode() && typeof window !== 'undefined') {
+    // Ensure endpoint starts with /
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+    
+    // Return mock data for common endpoints
+    if (normalizedEndpoint === '/me/usage' || normalizedEndpoint.startsWith('/me/usage?')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Demo Mode] Returning mock usage data for: ${normalizedEndpoint}`)
+      }
+      // Simulate async delay
+      await new Promise(resolve => setTimeout(resolve, 100))
+      return getDemoUsage() as T
+    }
+    if (normalizedEndpoint === '/documents' || normalizedEndpoint.startsWith('/documents?')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Demo Mode] Returning mock documents for: ${normalizedEndpoint}`)
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      return getDemoDocuments() as T
+    }
+    if (normalizedEndpoint === '/jobs' || normalizedEndpoint.startsWith('/jobs?')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Demo Mode] Returning mock jobs for: ${normalizedEndpoint}`)
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      return getDemoJobs() as T
+    }
+    if (normalizedEndpoint === '/history' || normalizedEndpoint.startsWith('/history?')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Demo Mode] Returning mock history for: ${normalizedEndpoint}`)
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      return getDemoHistory() as T
+    }
+    if (normalizedEndpoint.startsWith('/documents/') && !normalizedEndpoint.includes('?')) {
+      // Mock single document (GET /documents/:id)
+      const match = normalizedEndpoint.match(/^\/documents\/(\d+)$/)
+      if (match) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Demo Mode] Returning mock document for: ${normalizedEndpoint}`)
+        }
+        await new Promise(resolve => setTimeout(resolve, 100))
+        const docs = getDemoDocuments()
+        return docs.documents[0] as T
+      }
+    }
+    if (normalizedEndpoint.startsWith('/jobs/')) {
+      // Mock single job (not insights/parse endpoints)
+      if (!normalizedEndpoint.includes('/insights') && !normalizedEndpoint.includes('/parse') && !normalizedEndpoint.includes('?')) {
+        const match = normalizedEndpoint.match(/^\/jobs\/(\d+)$/)
+        if (match) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Demo Mode] Returning mock job for: ${normalizedEndpoint}`)
+          }
+          await new Promise(resolve => setTimeout(resolve, 100))
+          const jobs = getDemoJobs()
+          return jobs.jobs[0] as T
+        }
+      }
+    }
+    
+    // For other endpoints in demo mode, we'll still make the API call (but without auth)
+    // This allows other endpoints to work while returning mock data for common ones
+  }
+  
+  // Ensure endpoint starts with / for normal API calls
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+
   const { requireAuth = true, ...fetchOptions } = options
 
   // Use plain object for headers (Record<string, string>)
@@ -74,24 +145,21 @@ export async function apiRequest<T>(
     headers['Content-Type'] = 'application/json'
   }
 
-  // Add auth token if required
-  if (requireAuth && typeof window !== 'undefined') {
+  // Add auth token if required (but not in demo mode)
+  if (requireAuth && !isDemoMode() && typeof window !== 'undefined') {
     const token = localStorage.getItem('token')
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
   }
 
-  // Ensure endpoint starts with /
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  
   // Get base URL at runtime (not build time) to ensure env vars are available
   const baseURL = getBaseURLRuntime()
   const url = `${baseURL}${normalizedEndpoint}`
   
   // Log in development only (helpful for debugging)
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.log(`[API Request] ${options.method || 'GET'} ${url}`)
+    console.log(`[API Request] ${options.method || 'GET'} ${url}${isDemoMode() ? ' (Demo Mode - no auth)' : ''}`)
   }
   
   try {
