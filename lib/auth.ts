@@ -12,6 +12,7 @@ export const auth = {
   login: async (email: string, password: string) => {
     const response = await authAPI.login(email, password)
     if (response.access_token) {
+      // Always store token immediately
       localStorage.setItem('token', response.access_token)
       // Store basic user info (we'll get full details from API if needed)
       const user: User = {
@@ -22,7 +23,7 @@ export const auth = {
       localStorage.setItem('user', JSON.stringify(user))
       return response
     }
-    throw new Error('Login failed')
+    throw new Error('Login failed: No access token in response')
   },
 
   signup: async (data: {
@@ -32,27 +33,29 @@ export const auth = {
     visa_status?: string
   }) => {
     const response = await authAPI.signup(data)
-    // Store token if provided (backend now returns access_token on signup)
+    // Always store token if provided (backend returns access_token on signup)
     if (response.access_token) {
       localStorage.setItem('token', response.access_token)
       // Store user info from response (includes id, email, full_name, plan)
-      const user: User = {
-        id: response.user.id,
-        email: response.user.email,
-        full_name: response.user.full_name,
-        visa_status: data.visa_status,
-        plan: response.user.plan,
+      let user: User
+      if (response.user) {
+        user = {
+          id: response.user.id,
+          email: response.user.email,
+          full_name: response.user.full_name,
+          visa_status: data.visa_status,
+          plan: response.user.plan,
+        }
+      } else {
+        // Fallback: store basic user info if user object not in response
+        user = {
+          id: 0,
+          email: data.email,
+          full_name: data.full_name,
+          visa_status: data.visa_status,
+        }
       }
       localStorage.setItem('user', JSON.stringify(user))
-      
-      // Debug log in development only
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Auth Debug] Signup success - token and user stored', {
-          user_id: user.id,
-          email: user.email,
-          plan: user.plan,
-        })
-      }
     }
     return response
   },

@@ -97,21 +97,27 @@ export default function RegisterPage() {
         visa_status: data.visa_status,
       })
       
-      // If signup returns access_token, user is automatically logged in
+      // Debug log in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Register Debug] Signup success - status 200', {
+          has_access_token: !!response.access_token,
+          has_user: !!response.user,
+          data_keys: Object.keys(response),
+        })
+      }
+      
+      // If signup returns access_token, store it and redirect to dashboard
       if (response.access_token) {
-        // Debug log in development only
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Register Debug] Signup success - status 200, redirecting to /dashboard', {
-            user_id: response.user?.id,
-            plan: response.user?.plan,
-          })
-        }
+        // Token is already stored in auth.signup, but ensure it's there
+        localStorage.setItem("token", response.access_token)
         
         toast({
           title: "Account created — logging you in",
           description: "Welcome to Hireblaze! Redirecting to dashboard...",
         })
-        router.push("/dashboard")
+        
+        // Use replace instead of push to avoid back button issues
+        router.replace("/dashboard")
       } else {
         // Fallback: redirect to login if no token (shouldn't happen with new backend)
         toast({
@@ -121,6 +127,17 @@ export default function RegisterPage() {
         router.push("/login?signup=success")
       }
     } catch (err: any) {
+      // Debug log in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Register Debug] Signup error', {
+          status: err?.status,
+          statusCode: err?.statusCode,
+          detail: err?.detail,
+          message: err?.message,
+          data_keys: err && typeof err === 'object' ? Object.keys(err) : [],
+        })
+      }
+      
       // Extract exact error message from backend response
       let errorMsg = "Failed to create account. Please try again."
       let errorTitle = "Registration failed"
@@ -130,15 +147,6 @@ export default function RegisterPage() {
       // Handle APIError from api-client
       if (err && typeof err === 'object' && 'status' in err) {
         const apiError = err as any
-        
-        // Debug log in development only
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Register Debug] Signup error', {
-            status: apiError.status,
-            detail: apiError.detail,
-            message: apiError.message,
-          })
-        }
         
         // Extract error message from different possible formats
         if (apiError.detail) {
@@ -156,10 +164,8 @@ export default function RegisterPage() {
         // Handle specific status codes
         if (apiError.status === 409) {
           // 409 Conflict - Email already exists
-          errorTitle = "Email already registered — please log in"
-          errorMsg = typeof errorMsg === 'string' && errorMsg.includes('Please log in') 
-            ? errorMsg 
-            : "This email is already registered. Please log in."
+          errorTitle = "Email already exists, please login"
+          errorMsg = "This email is already registered. Please log in."
           shouldRedirectToLogin = true
           emailToRedirect = data.email
         } else if (apiError.status === 400 || apiError.status === 422) {
@@ -187,11 +193,9 @@ export default function RegisterPage() {
       // Redirect to login if account already exists (with email param for autofill)
       if (shouldRedirectToLogin) {
         const redirectUrl = emailToRedirect 
-          ? `/login?reason=exists&email=${encodeURIComponent(emailToRedirect)}`
+          ? `/login?email=${encodeURIComponent(emailToRedirect)}&reason=exists`
           : "/login?reason=exists"
-        setTimeout(() => {
-          router.push(redirectUrl)
-        }, 1500)
+        router.push(redirectUrl)
       }
     }
   }

@@ -17,8 +17,10 @@ export default function DashboardLayout({
 
   useEffect(() => {
     const checkAuth = () => {
-      if (!auth.isAuthenticated()) {
-        router.push("/login")
+      const token = auth.getToken()
+      if (!token) {
+        // No token found, redirect to login
+        router.replace("/login")
       } else {
         setIsAuthenticated(true)
       }

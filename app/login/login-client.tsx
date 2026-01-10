@@ -103,29 +103,41 @@ export function LoginClient() {
 
     try {
       const response = await auth.login(data.email, data.password)
+      
+      // Always store token if present
       if (response.access_token) {
-        // Ensure token is stored (already done in auth.login, but verify)
-        if (typeof window !== 'undefined') {
-          const storedToken = localStorage.getItem('token')
-          if (!storedToken || storedToken !== response.access_token) {
-            localStorage.setItem('token', response.access_token)
-          }
-        }
+        localStorage.setItem("token", response.access_token)
         
         // Debug log in development only
         if (process.env.NODE_ENV === 'development') {
-          console.log('[Login Debug] Login success - status 200, token stored, redirecting to /dashboard')
+          console.log('[Login Debug] Login success - status 200', {
+            has_access_token: !!response.access_token,
+            data_keys: Object.keys(response),
+          })
         }
         
         toast({
           title: "Welcome back!",
           description: "Successfully signed in.",
         })
-        router.push("/dashboard")
+        
+        // Use replace instead of push to avoid back button issues
+        router.replace("/dashboard")
       } else {
         throw new Error("Login failed: No access token received")
       }
     } catch (err: any) {
+      // Debug log in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Login Debug] Login error', {
+          status: err?.status,
+          statusCode: err?.statusCode,
+          detail: err?.detail,
+          message: err?.message,
+          data_keys: err && typeof err === 'object' ? Object.keys(err) : [],
+        })
+      }
+      
       // Extract exact error message from backend response
       let errorMsg = "Invalid email or password"
       let errorTitle = "Sign in failed"
@@ -133,15 +145,6 @@ export function LoginClient() {
       // Handle APIError from api-client
       if (err && typeof err === 'object' && 'status' in err) {
         const apiError = err as any
-        
-        // Debug log in development only
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Login Debug] Login error', {
-            status: apiError.status,
-            detail: apiError.detail,
-            message: apiError.message,
-          })
-        }
         
         // Extract error message from different possible formats
         if (apiError.detail) {
