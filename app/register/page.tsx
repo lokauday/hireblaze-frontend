@@ -89,6 +89,7 @@ export default function RegisterPage() {
       // Extract exact error message from backend response
       let errorMsg = "Failed to create account. Please try again."
       let errorTitle = "Registration failed"
+      let shouldRedirectToLogin = false
       
       // Handle APIError from api-client
       if (err && typeof err === 'object' && 'status' in err) {
@@ -109,13 +110,27 @@ export default function RegisterPage() {
         
         // Handle specific status codes
         if (apiError.status === 400) {
-          errorTitle = "Invalid input"
-          if (!errorMsg || errorMsg === "Failed to create account. Please try again.") {
-            errorMsg = "Please check your input and try again."
+          // Check if it's an email already exists error
+          const errorMsgLower = typeof errorMsg === 'string' ? errorMsg.toLowerCase() : ''
+          if (
+            errorMsgLower.includes('email already') ||
+            errorMsgLower.includes('already registered') ||
+            errorMsgLower.includes('user already exists') ||
+            errorMsgLower.includes('already exists')
+          ) {
+            errorTitle = "Account already exists"
+            errorMsg = "This email is already registered. Please sign in."
+            shouldRedirectToLogin = true
+          } else {
+            errorTitle = "Invalid input"
+            if (!errorMsg || errorMsg === "Failed to create account. Please try again.") {
+              errorMsg = "Please check your input and try again."
+            }
           }
         } else if (apiError.status === 409) {
-          errorTitle = "Email already registered"
-          errorMsg = "This email address is already in use. Please use a different email or try logging in."
+          errorTitle = "Account already exists"
+          errorMsg = "This email is already registered. Please sign in."
+          shouldRedirectToLogin = true
         } else if (apiError.status === 401) {
           errorTitle = "Authentication failed"
         } else if (apiError.status === 500) {
@@ -131,6 +146,13 @@ export default function RegisterPage() {
         description: typeof errorMsg === "string" ? errorMsg : "Failed to create account",
         variant: "destructive",
       })
+      
+      // Redirect to login if account already exists (preserve form values until redirect)
+      if (shouldRedirectToLogin) {
+        setTimeout(() => {
+          router.push("/login?reason=exists")
+        }, 1500)
+      }
     }
   }
 

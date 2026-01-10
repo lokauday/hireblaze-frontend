@@ -43,6 +43,11 @@ export function LoginClient() {
         title: "Account created successfully!",
         description: "Please sign in with your credentials.",
       })
+    } else if (searchParams.get("reason") === "exists") {
+      toast({
+        title: "Account already exists",
+        description: "This email is already registered. Please sign in with your password.",
+      })
     }
   }, [searchParams, toast])
 
@@ -82,8 +87,8 @@ export function LoginClient() {
         
         // Handle specific status codes
         if (apiError.status === 401) {
-          errorTitle = "Authentication failed"
-          errorMsg = errorMsg || "Invalid email or password"
+          errorTitle = "Incorrect credentials"
+          errorMsg = "Email or password is incorrect."
         } else if (apiError.status === 400) {
           errorTitle = "Invalid input"
           errorMsg = errorMsg || "Please check your email and password"
@@ -206,7 +211,23 @@ export function LoginClient() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/login#reset"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toast({
+                        title: "Password reset",
+                        description: "Password reset feature coming soon. Please contact support if you need help.",
+                        variant: "default",
+                      })
+                    }}
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
