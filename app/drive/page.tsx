@@ -121,26 +121,130 @@ export default function DrivePage() {
     }
   }
 
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    
+    try {
+      // Handle text files directly
+      if (extension === 'txt') {
+        return await file.text()
+      }
+      
+      // For binary files (PDF, DOC, DOCX), we need to extract text
+      // Since we can't parse binary formats in the browser without libraries,
+      // we'll show a user-friendly message and create an empty document
+      // The user can manually paste content or we can implement backend parsing
+      if (extension === 'pdf' || extension === 'doc' || extension === 'docx') {
+        toast({
+          title: "File Processing",
+          description: `${file.name} will be created. Please paste content manually or use backend parsing (coming soon).`,
+          variant: "default",
+        })
+        // Return empty content - user will need to add content manually
+        // TODO: Implement backend file parsing endpoint
+        return `[File uploaded: ${file.name}]\n\nPlease paste or type the content of this file into the editor.`
+      }
+      
+      // Fallback: try to read as text, but validate it's not binary
+      const text = await file.text()
+      // Check if it's binary (starts with PK, has null bytes, etc.)
+      if (text.startsWith('PK') || text.includes('\x00') || /[\x00-\x08\x0E-\x1F]/.test(text.substring(0, 100))) {
+        return `[Binary file: ${file.name}]\n\nUnable to extract text content. Please paste the content manually.`
+      }
+      return text
+    } catch (error) {
+      console.error(`Failed to read file ${file.name}:`, error)
+      return `[Error reading file: ${file.name}]\n\nPlease paste the content manually.`
+    }
+  }
+
   const handleUpload = async (files: File[]) => {
     try {
       setUploading(true)
-      // For now, create documents from files
-      // TODO: Parse files and extract content
+      let successCount = 0
+      let errorCount = 0
+      
       for (const file of files) {
-        const content = await file.text().catch(() => `File: ${file.name}`)
-        await documentsAPI.create({
-          title: file.name.replace(/\.[^/.]+$/, ""),
-          type: "resume", // Default, user can change later
-          content_text: content,
-          tags: [],
+        try {
+          // Extract text content from file
+          const content = await extractTextFromFile(file)
+          
+          // Get file extension to infer document type
+          const extension = file.name.split('.').pop()?.toLowerCase()
+          let docType: AppDocument["type"] = "resume" // Default
+          
+          // Infer type from filename patterns
+          const fileName = file.name.toLowerCase()
+          if (fileName.includes('cover') || fileName.includes('letter')) {
+            docType = "cover_letter"
+          } else if (fileName.includes('job') || fileName.includes('jd') || fileName.includes('description')) {
+            docType = "job_description"
+          } else if (fileName.includes('interview') || fileName.includes('notes')) {
+            docType = "interview_notes"
+          }
+          
+          // Create document with extracted text
+          await documentsAPI.create({
+            title: file.name.replace(/\.[^/.]+$/, ""),
+            type: docType,
+            content_text: content,
+            tags: [],
+          })
+          successCount++
+        } catch (error: any) {
+          console.error(`Failed to upload file ${file.name}:`, error)
+          errorCount++
+          
+          // Check if it's the binary content validation error
+          if (error.message?.includes('binary') || error.message?.includes('corrupted')) {
+            toast({
+              title: "Upload Warning",
+              description: `${file.name}: Unable to extract text content. Creating empty document - please add content manually.`,
+              variant: "default",
+            })
+            // Create document with placeholder content
+            try {
+              await documentsAPI.create({
+                title: file.name.replace(/\.[^/.]+$/, ""),
+                type: "resume",
+                content_text: `[File: ${file.name}]\n\nUnable to automatically extract content from this file format.\nPlease paste or type the content manually.`,
+                tags: [],
+              })
+              successCount++
+              errorCount--
+            } catch (createError) {
+              // If even creating with placeholder fails, show error
+              toast({
+                title: "Error",
+                description: `Failed to create document for ${file.name}: ${createError}`,
+                variant: "destructive",
+              })
+            }
+          } else {
+            toast({
+              title: "Error",
+              description: `Failed to upload ${file.name}: ${error.message || 'Unknown error'}`,
+              variant: "destructive",
+            })
+          }
+        }
+      }
+      
+      // Show summary
+      if (successCount > 0) {
+        toast({
+          title: "Success",
+          description: `${successCount} file(s) uploaded successfully${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+        })
+        setShowUploadDialog(false)
+        loadDocuments()
+      } else if (errorCount > 0) {
+        toast({
+          title: "Upload Failed",
+          description: `Failed to upload ${errorCount} file(s). Please check file formats and try again.`,
+          variant: "destructive",
         })
       }
-      toast({
-        title: "Success",
-        description: `${files.length} file(s) uploaded successfully`,
-      })
-      setShowUploadDialog(false)
-      loadDocuments()
     } catch (error: any) {
       console.error("Failed to upload files:", error)
       toast({
