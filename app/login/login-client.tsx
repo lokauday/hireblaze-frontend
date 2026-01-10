@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert } from "@/components/ui/alert"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
+import { APIErrorBanner, isAPIConfigured } from "@/components/shared/api-error-banner"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -52,11 +53,38 @@ export function LoginClient() {
   }, [searchParams, toast])
 
   const onSubmit = async (data: LoginFormData) => {
+    // Runtime guard: check if API is configured
+    if (!isAPIConfigured()) {
+      toast({
+        title: "API not configured",
+        description: "NEXT_PUBLIC_API_URL is not set. Please configure the API URL to continue.",
+        variant: "destructive",
+      })
+      setLoading(false)
+      return
+    }
+    
+    // Runtime check: log in development
+    if (process.env.NODE_ENV === 'development') {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+      console.log(`[Login] Submitting login request to: ${apiUrl}/auth/login`)
+    }
+
     setLoading(true)
 
     try {
       const response = await auth.login(data.email, data.password)
       if (response.access_token) {
+        // Store token (already done in auth.login, but verify)
+        if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
+          localStorage.setItem('token', response.access_token)
+        }
+        
+        // Log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Login] Token stored, redirecting to /dashboard')
+        }
+        
         toast({
           title: "Welcome back!",
           description: "Successfully signed in.",
@@ -113,6 +141,16 @@ export function LoginClient() {
   }
 
   const handleDemoLogin = async () => {
+    // Runtime guard: check if API is configured
+    if (!isAPIConfigured()) {
+      toast({
+        title: "API not configured",
+        description: "NEXT_PUBLIC_API_URL is not set. Please configure the API URL to continue.",
+        variant: "destructive",
+      })
+      return
+    }
+    
     const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL
     const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD
 
@@ -125,11 +163,27 @@ export function LoginClient() {
       return
     }
 
+    // Log in development
+    if (process.env.NODE_ENV === 'development') {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+      console.log(`[Demo Login] Submitting login request to: ${apiUrl}/auth/login`)
+    }
+
     setLoading(true)
 
     try {
       const response = await auth.login(demoEmail, demoPassword)
       if (response.access_token) {
+        // Store token (already done in auth.login, but verify)
+        if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
+          localStorage.setItem('token', response.access_token)
+        }
+        
+        // Log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Demo Login] Token stored, redirecting to /dashboard')
+        }
+        
         toast({
           title: "Welcome!",
           description: "Successfully signed in with demo account.",
@@ -167,10 +221,13 @@ export function LoginClient() {
     }
   }
 
+  // Runtime check: disable form if API not configured
+  const apiConfigured = isAPIConfigured()
   const showDemoButton = process.env.NEXT_PUBLIC_DEMO_EMAIL && process.env.NEXT_PUBLIC_DEMO_PASSWORD
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+      <APIErrorBanner />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -246,8 +303,8 @@ export function LoginClient() {
                   </p>
                 )}
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
+              <Button type="submit" className="w-full" disabled={loading || !apiConfigured}>
+                {loading ? "Signing in..." : !apiConfigured ? "API not configured" : "Sign in"}
               </Button>
             </form>
             {showDemoButton && (

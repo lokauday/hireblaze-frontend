@@ -3,8 +3,9 @@
  * Handles authentication, error handling, and request/response transformation.
  */
 
-// Get base URL with fallback and validation
+// Get base URL at runtime (not build time) with validation
 function getBaseURL(): string {
+  // Access env var at runtime (works in both server and client)
   const url = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
   
   // Warn in development if URL is missing
@@ -15,7 +16,17 @@ function getBaseURL(): string {
   return url
 }
 
-const baseURL = getBaseURL()
+// Runtime check for API URL (called on each request, not at build time)
+function getBaseURLRuntime(): string {
+  const url = getBaseURL()
+  
+  // In production, ensure URL is set
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+    console.error('❌ NEXT_PUBLIC_API_URL is not set in production! API requests will fail.')
+  }
+  
+  return url
+}
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean
@@ -73,7 +84,15 @@ export async function apiRequest<T>(
 
   // Ensure endpoint starts with /
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  
+  // Get base URL at runtime (not build time) to ensure env vars are available
+  const baseURL = getBaseURLRuntime()
   const url = `${baseURL}${normalizedEndpoint}`
+  
+  // Log in development only (helpful for debugging)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log(`[API Request] ${options.method || 'GET'} ${url}`)
+  }
   
   try {
     const response = await fetch(url, {
@@ -153,13 +172,30 @@ async function handleAuthResponse<T>(res: Response): Promise<T> {
 // Auth API - Direct fetch for form-urlencoded endpoints (backend accepts both JSON and form)
 export const authAPI = {
   login: async (email: string, password: string) => {
+    // Get base URL at runtime
+    const baseURL = getBaseURLRuntime()
+    
+    // Runtime guard: check if API URL is missing
+    if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+      const errorMsg = 'API URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.'
+      console.error(`❌ ${errorMsg}`)
+      throw new Error(errorMsg)
+    }
+    
     // Use form-urlencoded (same as signup for consistency)
     // Backend also accepts JSON with {"email": "...", "password": "..."}
     const form = new URLSearchParams()
     form.set('username', email.trim().toLowerCase()) // OAuth2PasswordRequestForm uses 'username' field
     form.set('password', password)
 
-    const res = await fetch(`${baseURL}/auth/login`, {
+    const url = `${baseURL}/auth/login`
+    
+    // Log in development only
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.log(`[Auth API] POST ${url}`)
+    }
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -176,6 +212,16 @@ export const authAPI = {
     password: string
     visa_status?: string
   }) => {
+    // Get base URL at runtime
+    const baseURL = getBaseURLRuntime()
+    
+    // Runtime guard: check if API URL is missing
+    if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+      const errorMsg = 'API URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.'
+      console.error(`❌ ${errorMsg}`)
+      throw new Error(errorMsg)
+    }
+    
     const form = new URLSearchParams()
     form.set('full_name', payload.full_name.trim())
     form.set('email', payload.email.trim().toLowerCase())
@@ -184,7 +230,14 @@ export const authAPI = {
       form.set('visa_status', payload.visa_status)
     }
 
-    const res = await fetch(`${baseURL}/auth/signup`, {
+    const url = `${baseURL}/auth/signup`
+    
+    // Log in development only
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.log(`[Auth API] POST ${url}`)
+    }
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

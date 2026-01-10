@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
+import { APIErrorBanner, isAPIConfigured } from "@/components/shared/api-error-banner"
 
 const registerSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
@@ -41,6 +42,22 @@ export default function RegisterPage() {
   })
 
   const onSubmit = async (data: RegisterFormData) => {
+    // Runtime guard: check if API is configured
+    if (!isAPIConfigured()) {
+      toast({
+        title: "API not configured",
+        description: "NEXT_PUBLIC_API_URL is not set. Please configure the API URL to continue.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // Runtime check: log in development
+    if (process.env.NODE_ENV === 'development') {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+      console.log(`[Register] Submitting signup request to: ${apiUrl}/auth/signup`)
+    }
+
     // Client-side validation: password must be at least 8 characters
     if (data.password.length < 8) {
       toast({
@@ -156,8 +173,12 @@ export default function RegisterPage() {
     }
   }
 
+  // Runtime check: disable form if API not configured
+  const apiConfigured = isAPIConfigured()
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
+      <APIErrorBanner />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -247,8 +268,8 @@ export default function RegisterPage() {
                   disabled={isSubmitting}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? "Creating account..." : "Create account"}
+              <Button type="submit" className="w-full" disabled={isSubmitting || !apiConfigured}>
+                {isSubmitting ? "Creating account..." : !apiConfigured ? "API not configured" : "Create account"}
               </Button>
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">

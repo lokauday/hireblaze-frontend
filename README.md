@@ -67,11 +67,44 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
 ## 🔐 Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_API_URL` | Backend API URL | Yes |
+### Required Variables
 
-Default: `https://hireblaze-api-production.up.railway.app`
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `NEXT_PUBLIC_API_URL` | Backend API URL (Railway backend) | **Yes** | `https://hireblaze-api-production.up.railway.app` |
+
+### Local Development Setup
+
+Create `.env.local` in the project root:
+
+```bash
+# Backend API URL (required)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Optional: Demo account credentials (for demo login button)
+NEXT_PUBLIC_DEMO_EMAIL=demo@hireblaze.ai
+NEXT_PUBLIC_DEMO_PASSWORD=DemoPass123
+```
+
+### Vercel Deployment Setup
+
+**⚠️ CRITICAL: You MUST set `NEXT_PUBLIC_API_URL` in Vercel environment variables for auth to work.**
+
+1. Go to your Vercel project settings
+2. Navigate to **Environment Variables**
+3. Add the following variable:
+   - **Key:** `NEXT_PUBLIC_API_URL`
+   - **Value:** `https://your-railway-backend.up.railway.app` (your actual Railway URL)
+   - **Environment:** Production, Preview, Development (check all)
+
+4. **Redeploy** your application after adding the variable
+
+**Why this is required:**
+- Without `NEXT_PUBLIC_API_URL`, the frontend cannot connect to the Railway backend
+- Auth requests (signup/login) will fail silently
+- The app will show an "API not configured" banner and disable form submissions
+
+**Note:** Next.js requires `NEXT_PUBLIC_` prefix for client-side environment variables. These are exposed to the browser, so do NOT put secrets in them.
 
 ## 📁 Project Structure
 
