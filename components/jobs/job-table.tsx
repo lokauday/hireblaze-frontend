@@ -2,7 +2,19 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Briefcase, MoreVertical, Trash2, Edit, ExternalLink, Calendar } from "lucide-react"
+import {
+  Briefcase,
+  MoreVertical,
+  Trash2,
+  Edit,
+  ExternalLink,
+  Calendar,
+  FileSearch,
+  BarChart3,
+  Send,
+  FileText,
+  Sparkles,
+} from "lucide-react"
 import {
   Table,
   TableBody,
@@ -26,6 +38,11 @@ import { cn } from "@/lib/utils"
 interface JobTableProps {
   jobs: Job[]
   onDelete: (id: number) => void
+  onParseJD?: (id: number) => void
+  onViewInsights?: (job: Job) => void
+  onGenerateOutreach?: (job: Job) => void
+  onInterviewPack?: (job: Job) => void
+  parsingJobId?: number | null
   className?: string
 }
 
@@ -54,7 +71,16 @@ function formatDate(dateString: string | null): string {
   return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
 }
 
-export function JobTable({ jobs, onDelete, className }: JobTableProps) {
+export function JobTable({
+  jobs,
+  onDelete,
+  onParseJD,
+  onViewInsights,
+  onGenerateOutreach,
+  onInterviewPack,
+  parsingJobId,
+  className,
+}: JobTableProps) {
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
@@ -135,7 +161,7 @@ export function JobTable({ jobs, onDelete, className }: JobTableProps) {
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem onClick={() => handleEdit(job.id)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
@@ -147,8 +173,66 @@ export function JobTable({ jobs, onDelete, className }: JobTableProps) {
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
+                    {onParseJD && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onParseJD(job.id)
+                        }}
+                        disabled={parsingJobId === job.id}
+                      >
+                        {parsingJobId === job.id ? (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4 animate-spin" />
+                            Parsing...
+                          </>
+                        ) : (
+                          <>
+                            <FileSearch className="mr-2 h-4 w-4" />
+                            Parse JD
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {onViewInsights && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onViewInsights(job)
+                        }}
+                      >
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        View Insights
+                      </DropdownMenuItem>
+                    )}
+                    {onGenerateOutreach && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onGenerateOutreach(job)
+                        }}
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        Generate Outreach
+                      </DropdownMenuItem>
+                    )}
+                    {onInterviewPack && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onInterviewPack(job)
+                        }}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Interview Pack
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleDelete(job.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(job.id)
+                      }}
                       className="text-destructive focus:text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />

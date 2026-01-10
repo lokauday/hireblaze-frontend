@@ -9,12 +9,18 @@ import { PageHeader } from "@/components/layout/page-header"
 import { JobFilters } from "@/components/jobs/job-filters"
 import { JobTable } from "@/components/jobs/job-table"
 import { JobForm } from "@/components/jobs/job-form"
+import { ImportJobModal } from "@/components/jobs/import-job-modal"
+import { JobInsightsDrawer } from "@/components/jobs/job-insights-drawer"
 import { EmptyState } from "@/components/shared/empty-state"
 import { LoadingSkeleton, TableSkeleton } from "@/components/shared/loading-skeleton"
 import { jobsAPI, Job, JobCreate, JobUpdate, JobFilters as JobFiltersType } from "@/lib/api/jobs"
+import { documentsAPI, AppDocument } from "@/lib/api/documents"
 import { useToast } from "@/hooks/use-toast"
+import { APIError } from "@/lib/api-client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
 type ViewMode = "table" | "grid"
 
@@ -31,7 +37,13 @@ export function JobsClient() {
   })
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [showInsightsDrawer, setShowInsightsDrawer] = useState(false)
   const [editingJob, setEditingJob] = useState<Job | null>(null)
+  const [selectedJobForInsights, setSelectedJobForInsights] = useState<Job | null>(null)
+  const [resumes, setResumes] = useState<AppDocument[]>([])
+  const [selectedResumeId, setSelectedResumeId] = useState<string>("")
+  const [parsingJobId, setParsingJobId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Check if edit mode from URL params
@@ -48,7 +60,20 @@ export function JobsClient() {
 
   useEffect(() => {
     loadJobs()
+    loadResumes()
   }, [filters])
+
+  const loadResumes = async () => {
+    try {
+      const response = await documentsAPI.list({ type: "resume", page_size: 100 })
+      setResumes(response.documents)
+      if (response.documents.length > 0 && !selectedResumeId) {
+        setSelectedResumeId(response.documents[0].id.toString())
+      }
+    } catch (err) {
+      // Silently fail - resumes not critical for jobs page
+    }
+  }
 
   const loadJobs = async () => {
     try {
@@ -123,6 +148,66 @@ export function JobsClient() {
     setFilters(newFilters)
   }
 
+  const handleParseJD = async (id: number) => {
+    setParsingJobId(id)
+    try {
+      await jobsAPI.parseJD(id)
+      toast({
+        title: "JD parsed successfully!",
+        description: "Job description has been analyzed and skills extracted.",
+      })
+      loadJobs()
+    } catch (error: any) {
+      toast({
+        title: "Parse failed",
+        description: error.message || "Failed to parse job description",
+        variant: "destructive",
+      })
+    } finally {
+      setParsingJobId(null)
+    }
+  }
+
+  const handleViewInsights = (job: Job) => {
+    setSelectedJobForInsights(job)
+    setShowInsightsDrawer(true)
+  }
+
+  const handleGenerateOutreach = (job: Job) => {
+    router.push(`/outreach?job_id=${job.id}`)
+  }
+
+  const handleInterviewPack = async (job: Job) => {
+    if (!selectedResumeId) {
+      toast({
+        title: "Resume required",
+        description: "Please select a resume first to generate interview pack.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const { aiAPI } = await import("@/lib/api/ai")
+      await aiAPI.interviewPack({
+        resume_id: parseInt(selectedResumeId),
+        job_id: job.id,
+        save_to_drive: true,
+      })
+
+      toast({
+        title: "Interview Pack generated!",
+        description: "Check your Drive for the complete interview preparation pack.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Failed to generate interview pack",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Statistics
   const stats = {
     total: jobs.length,
@@ -136,15 +221,54 @@ export function JobsClient() {
       <PageHeader
         title="Job Tracker"
         subtitle="Manage your job applications and track progress"
-        action={{
-          label: "Add Job",
-          onClick: () => {
-            setEditingJob(null)
-            setShowForm(true)
-          },
-          icon: <Plus className="h-4 w-4" />,
-        }}
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowImportModal(true)}
+              className="gap-2"
+            >
+              <Link2 className="h-4 w-4" />
+              Import Job
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingJob(null)
+                setShowForm(true)
+              }}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Job
+            </Button>
+          </div>
+        }
       />
+
+      {/* Resume Selection for Insights */}
+      {resumes.length > 0 && (
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <Label htmlFor="resume-select" className="text-sm font-medium">
+                Select Resume for Insights:
+              </Label>
+              <Select value={selectedResumeId} onValueChange={setSelectedResumeId}>
+                <SelectTrigger id="resume-select" className="w-64">
+                  <SelectValue placeholder="Select a resume" />
+                </SelectTrigger>
+                <SelectContent>
+                  {resumes.map((resume) => (
+                    <SelectItem key={resume.id} value={resume.id.toString()}>
+                      {resume.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Statistics */}
       {!loading && jobs.length > 0 && (
@@ -226,7 +350,15 @@ export function JobsClient() {
       ) : (
         <>
           {viewMode === "table" ? (
-            <JobTable jobs={jobs} onDelete={handleDelete} />
+            <JobTable
+              jobs={jobs}
+              onDelete={handleDelete}
+              onParseJD={handleParseJD}
+              onViewInsights={handleViewInsights}
+              onGenerateOutreach={handleGenerateOutreach}
+              onInterviewPack={handleInterviewPack}
+              parsingJobId={parsingJobId}
+            />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {jobs.map((job) => (
@@ -320,6 +452,29 @@ export function JobsClient() {
         onSubmit={handleSubmit}
         initialData={editingJob}
         mode={editingJob ? "edit" : "create"}
+      />
+
+      {/* Import Job Modal */}
+      <ImportJobModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+        onSuccess={() => {
+          loadJobs()
+        }}
+      />
+
+      {/* Insights Drawer */}
+      <JobInsightsDrawer
+        job={selectedJobForInsights}
+        open={showInsightsDrawer}
+        onOpenChange={setShowInsightsDrawer}
+        resumeId={selectedResumeId ? parseInt(selectedResumeId) : null}
+        onInterviewPackGenerated={() => {
+          toast({
+            title: "Interview Pack generated!",
+            description: "Check your Drive for the complete interview preparation pack.",
+          })
+        }}
       />
     </div>
   )
