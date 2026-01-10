@@ -82,7 +82,7 @@ export function LoginClient() {
     if (!isAPIConfigured()) {
       toast({
         title: "API not configured",
-        description: "NEXT_PUBLIC_API_URL is not set. Please configure the API URL to continue.",
+        description: "NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL) is not set. Please configure the API URL to continue.",
         variant: "destructive",
       })
       setLoading(false)
