@@ -88,7 +88,28 @@ export default function EditorPage() {
       
       // Load draft if exists, otherwise use saved content
       const draft = localStorage.getItem(`doc-${loadedDoc.id}-draft`)
-      setContent(draft || loadedDoc.content_text || "")
+      let contentToUse = draft || loadedDoc.content_text || ""
+      
+      // Sanitize content - check if it's binary/corrupted data
+      if (contentToUse && (contentToUse.startsWith('PK') || contentToUse.includes('\x00') || /[\x00-\x08\x0E-\x1F]/.test(contentToUse))) {
+        console.warn('Document content appears to be binary or corrupted. Clearing content.')
+        toast({
+          title: "Warning",
+          description: "Document content appears corrupted. Content has been cleared. Please recreate the document.",
+          variant: "default",
+        })
+        contentToUse = "" // Clear corrupted content
+        // Optionally update the document in the backend to clear corrupted data
+        try {
+          await documentsAPI.update(Number(documentId), {
+            content_text: "",
+          })
+        } catch (e) {
+          console.error('Failed to clear corrupted content:', e)
+        }
+      }
+      
+      setContent(contentToUse)
       setHasUnsavedChanges(!!draft)
     } catch (error: any) {
       console.error("Failed to load document:", error)
