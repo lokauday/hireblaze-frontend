@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { auth } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
-import { APIErrorBanner, isAPIConfigured } from "@/components/shared/api-error-banner"
+import { isAPIConfigured } from "@/components/shared/api-error-banner"
 
 const registerSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
@@ -205,7 +205,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <APIErrorBanner />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
