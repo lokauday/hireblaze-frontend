@@ -115,52 +115,70 @@ export async function apiRequest<T>(
   }
 }
 
-// Auth API
+// Helper to handle auth responses (parses JSON even on errors)
+async function handleAuthResponse<T>(res: Response): Promise<T> {
+  let data: any
+  try {
+    const text = await res.text()
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    throw new Error('Invalid response format')
+  }
+
+  if (!res.ok) {
+    const errorMessage = data.detail || data.message || `Request failed with status ${res.status}`
+    throw new APIError(res.status, data, errorMessage)
+  }
+
+  return data as T
+}
+
+// Auth API - Direct fetch for form-urlencoded endpoints
 export const authAPI = {
   login: async (email: string, password: string) => {
-    const formData = new URLSearchParams()
-    formData.append('username', email) // OAuth2PasswordRequestForm uses 'username' field
-    formData.append('password', password)
-    
-    return apiRequest<{ access_token: string; token_type: string }>('/auth/login', {
+    const form = new URLSearchParams()
+    form.set('username', email.trim().toLowerCase()) // OAuth2PasswordRequestForm uses 'username' field
+    form.set('password', password)
+
+    const res = await fetch(`${baseURL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: formData.toString(),
-      requireAuth: false,
+      body: form.toString(),
     })
+
+    return handleAuthResponse<{ access_token: string; token_type: string }>(res)
   },
 
-  signup: async (data: {
+  signup: async (payload: {
     full_name: string
     email: string
     password: string
     visa_status?: string
   }) => {
-    const formData = new URLSearchParams()
-    formData.append('full_name', data.full_name)
-    formData.append('email', data.email)
-    formData.append('password', data.password)
-    if (data.visa_status) {
-      formData.append('visa_status', data.visa_status)
-    } else {
-      formData.append('visa_status', 'Citizen') // Default value
+    const form = new URLSearchParams()
+    form.set('full_name', payload.full_name.trim())
+    form.set('email', payload.email.trim().toLowerCase())
+    form.set('password', payload.password)
+    if (payload.visa_status) {
+      form.set('visa_status', payload.visa_status)
     }
-    
-    return apiRequest<{ 
-      message: string
-      user_id: number
-      access_token: string
-      token_type: string
-    }>('/auth/signup', {
+
+    const res = await fetch(`${baseURL}/auth/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: formData.toString(),
-      requireAuth: false,
+      body: form.toString(),
     })
+
+    return handleAuthResponse<{
+      message: string
+      user_id: number
+      access_token: string
+      token_type: string
+    }>(res)
   },
 }
 

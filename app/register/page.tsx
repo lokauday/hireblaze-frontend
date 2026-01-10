@@ -17,7 +17,9 @@ import { useToast } from "@/hooks/use-toast"
 const registerSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password cannot exceed 72 characters"),
   visa_status: z.string().optional(),
 })
 
@@ -39,6 +41,27 @@ export default function RegisterPage() {
   })
 
   const onSubmit = async (data: RegisterFormData) => {
+    // Client-side validation: password must be at least 8 characters
+    if (data.password.length < 8) {
+      toast({
+        title: "Invalid password",
+        description: "Password must be at least 8 characters",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Client-side validation: password cannot exceed 72 bytes (approx 72 chars for ASCII)
+    const passwordBytes = new TextEncoder().encode(data.password).length
+    if (passwordBytes > 72) {
+      toast({
+        title: "Invalid password",
+        description: "Password cannot be longer than 72 bytes (approximately 72 characters)",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const response = await auth.signup({
         full_name: data.full_name,
