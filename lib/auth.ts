@@ -31,6 +31,18 @@ export const auth = {
     visa_status?: string
   }) => {
     const response = await authAPI.signup(data)
+    // Store token if provided (backend now returns access_token on signup)
+    if (response.access_token) {
+      localStorage.setItem('token', response.access_token)
+      // Store basic user info
+      const user: User = {
+        id: response.user_id,
+        email: data.email,
+        full_name: data.full_name,
+        visa_status: data.visa_status,
+      }
+      localStorage.setItem('user', JSON.stringify(user))
+    }
     return response
   },
 

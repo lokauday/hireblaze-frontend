@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 const registerSchema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   visa_status: z.string().optional(),
 })
 
@@ -40,36 +40,67 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await auth.signup({
+      const response = await auth.signup({
         full_name: data.full_name,
         email: data.email,
         password: data.password,
         visa_status: data.visa_status,
       })
-      toast({
-        title: "Account created successfully!",
-        description: "Redirecting to login...",
-      })
-      router.push("/login?signup=success")
+      
+      // If signup returns access_token, user is automatically logged in
+      if (response.access_token) {
+        toast({
+          title: "Account created successfully!",
+          description: "Welcome to Hireblaze! Redirecting to dashboard...",
+        })
+        router.push("/dashboard")
+      } else {
+        // Fallback: redirect to login if no token (shouldn't happen with new backend)
+        toast({
+          title: "Account created successfully!",
+          description: "Redirecting to login...",
+        })
+        router.push("/login?signup=success")
+      }
     } catch (err: any) {
-      // Handle API errors with proper status code detection
-      let errorMsg = "Failed to create account"
+      // Extract exact error message from backend response
+      let errorMsg = "Failed to create account. Please try again."
       let errorTitle = "Registration failed"
       
-      if (err instanceof Error && 'status' in err) {
+      // Handle APIError from api-client
+      if (err && typeof err === 'object' && 'status' in err) {
         const apiError = err as any
-        if (apiError.status === 409) {
+        
+        // Extract error message from different possible formats
+        if (apiError.detail) {
+          if (typeof apiError.detail === 'string') {
+            errorMsg = apiError.detail
+          } else if (apiError.detail.detail) {
+            errorMsg = apiError.detail.detail
+          } else if (apiError.detail.error || apiError.detail.message) {
+            errorMsg = apiError.detail.error || apiError.detail.message || errorMsg
+          }
+        } else if (apiError.message) {
+          errorMsg = apiError.message
+        }
+        
+        // Handle specific status codes
+        if (apiError.status === 400) {
+          errorTitle = "Invalid input"
+          if (!errorMsg || errorMsg === "Failed to create account. Please try again.") {
+            errorMsg = "Please check your input and try again."
+          }
+        } else if (apiError.status === 409) {
           errorTitle = "Email already registered"
           errorMsg = "This email address is already in use. Please use a different email or try logging in."
-        } else if (apiError.status === 400) {
-          errorTitle = "Invalid input"
-          errorMsg = apiError.detail?.detail || apiError.detail || apiError.message || "Please check your input and try again."
-        } else {
-          errorMsg = apiError.detail?.detail || apiError.detail || apiError.message || errorMsg
+        } else if (apiError.status === 401) {
+          errorTitle = "Authentication failed"
+        } else if (apiError.status === 500) {
+          errorTitle = "Server error"
+          errorMsg = "Server error occurred. Please try again later."
         }
-      } else {
-        // Fallback for other error types
-        errorMsg = err.detail?.detail || err.detail || err.message || errorMsg
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMsg = err.message || errorMsg
       }
       
       toast({

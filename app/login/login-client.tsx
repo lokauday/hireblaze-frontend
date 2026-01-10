@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -59,10 +59,46 @@ export function LoginClient() {
         router.push("/dashboard")
       }
     } catch (err: any) {
-      const errorMsg =
-        err.detail?.detail || err.detail || err.message || "Invalid email or password"
+      // Extract exact error message from backend response
+      let errorMsg = "Invalid email or password"
+      let errorTitle = "Sign in failed"
+      
+      // Handle APIError from api-client
+      if (err && typeof err === 'object' && 'status' in err) {
+        const apiError = err as any
+        
+        // Extract error message from different possible formats
+        if (apiError.detail) {
+          if (typeof apiError.detail === 'string') {
+            errorMsg = apiError.detail
+          } else if (apiError.detail.detail) {
+            errorMsg = apiError.detail.detail
+          } else if (apiError.detail.error || apiError.detail.message) {
+            errorMsg = apiError.detail.error || apiError.detail.message || errorMsg
+          }
+        } else if (apiError.message) {
+          errorMsg = apiError.message
+        }
+        
+        // Handle specific status codes
+        if (apiError.status === 401) {
+          errorTitle = "Authentication failed"
+          errorMsg = errorMsg || "Invalid email or password"
+        } else if (apiError.status === 400) {
+          errorTitle = "Invalid input"
+          errorMsg = errorMsg || "Please check your email and password"
+        } else if (apiError.status === 500) {
+          errorTitle = "Server error"
+          errorMsg = "Server error occurred. Please try again later."
+        }
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMsg = err.message || errorMsg
+      } else if (err && typeof err === 'string') {
+        errorMsg = err
+      }
+      
       toast({
-        title: "Sign in failed",
+        title: errorTitle,
         description: typeof errorMsg === "string" ? errorMsg : "Invalid email or password",
         variant: "destructive",
       })
@@ -96,8 +132,26 @@ export function LoginClient() {
         router.push("/dashboard")
       }
     } catch (err: any) {
-      const errorMsg =
-        err.detail?.detail || err.detail || err.message || "Demo login failed"
+      // Extract exact error message from backend response
+      let errorMsg = "Demo login failed"
+      
+      if (err && typeof err === 'object' && 'status' in err) {
+        const apiError = err as any
+        if (apiError.detail) {
+          if (typeof apiError.detail === 'string') {
+            errorMsg = apiError.detail
+          } else if (apiError.detail.detail) {
+            errorMsg = apiError.detail.detail
+          } else if (apiError.detail.error || apiError.detail.message) {
+            errorMsg = apiError.detail.error || apiError.detail.message || errorMsg
+          }
+        } else if (apiError.message) {
+          errorMsg = apiError.message
+        }
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMsg = err.message || errorMsg
+      }
+      
       toast({
         title: "Demo login failed",
         description: typeof errorMsg === "string" ? errorMsg : "Demo login failed",

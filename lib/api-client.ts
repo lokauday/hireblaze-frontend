@@ -148,7 +148,12 @@ export const authAPI = {
       formData.append('visa_status', 'Citizen') // Default value
     }
     
-    return apiRequest<{ message: string; user_id: number }>('/auth/signup', {
+    return apiRequest<{ 
+      message: string
+      user_id: number
+      access_token: string
+      token_type: string
+    }>('/auth/signup', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
