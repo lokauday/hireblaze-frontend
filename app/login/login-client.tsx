@@ -33,24 +33,49 @@ export function LoginClient() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
   useEffect(() => {
-    if (searchParams.get("signup") === "success") {
+    // Handle query params for email autofill and toasts
+    const reason = searchParams.get("reason")
+    const emailParam = searchParams.get("email")
+    const signupParam = searchParams.get("signup")
+    
+    // Autofill email from query param if provided
+    if (emailParam) {
+      try {
+        const decodedEmail = decodeURIComponent(emailParam)
+        setValue("email", decodedEmail)
+        
+        // Debug log in development only
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Login Debug] Autofilled email from query param:', decodedEmail)
+        }
+      } catch (e) {
+        // If decode fails, just use the raw value
+        setValue("email", emailParam)
+      }
+    }
+    
+    // Show appropriate toast based on query params
+    if (signupParam === "success") {
       toast({
         title: "Account created successfully!",
         description: "Please sign in with your credentials.",
       })
-    } else if (searchParams.get("reason") === "exists") {
+    } else if (reason === "exists") {
       toast({
-        title: "Account already exists",
-        description: "This email is already registered. Please sign in with your password.",
+        title: "Account already exists — please log in",
+        description: emailParam 
+          ? `The email ${decodeURIComponent(emailParam)} is already registered. Please sign in with your password.`
+          : "This email is already registered. Please sign in with your password.",
       })
     }
-  }, [searchParams, toast])
+  }, [searchParams, toast, setValue])
 
   const onSubmit = async (data: LoginFormData) => {
     // Runtime guard: check if API is configured
@@ -64,10 +89,14 @@ export function LoginClient() {
       return
     }
     
-    // Runtime check: log in development
+    // Debug log in development only
     if (process.env.NODE_ENV === 'development') {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
-      console.log(`[Login] Submitting login request to: ${apiUrl}/auth/login`)
+      console.log(`[Login Debug] Submitting login request`, {
+        baseURL: apiUrl,
+        endpoint: '/auth/login',
+        email: data.email,
+      })
     }
 
     setLoading(true)
@@ -75,14 +104,17 @@ export function LoginClient() {
     try {
       const response = await auth.login(data.email, data.password)
       if (response.access_token) {
-        // Store token (already done in auth.login, but verify)
-        if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
-          localStorage.setItem('token', response.access_token)
+        // Ensure token is stored (already done in auth.login, but verify)
+        if (typeof window !== 'undefined') {
+          const storedToken = localStorage.getItem('token')
+          if (!storedToken || storedToken !== response.access_token) {
+            localStorage.setItem('token', response.access_token)
+          }
         }
         
-        // Log in development
+        // Debug log in development only
         if (process.env.NODE_ENV === 'development') {
-          console.log('[Login] Token stored, redirecting to /dashboard')
+          console.log('[Login Debug] Login success - status 200, token stored, redirecting to /dashboard')
         }
         
         toast({
@@ -90,6 +122,8 @@ export function LoginClient() {
           description: "Successfully signed in.",
         })
         router.push("/dashboard")
+      } else {
+        throw new Error("Login failed: No access token received")
       }
     } catch (err: any) {
       // Extract exact error message from backend response
@@ -99,6 +133,15 @@ export function LoginClient() {
       // Handle APIError from api-client
       if (err && typeof err === 'object' && 'status' in err) {
         const apiError = err as any
+        
+        // Debug log in development only
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Login Debug] Login error', {
+            status: apiError.status,
+            detail: apiError.detail,
+            message: apiError.message,
+          })
+        }
         
         // Extract error message from different possible formats
         if (apiError.detail) {
@@ -115,9 +158,9 @@ export function LoginClient() {
         
         // Handle specific status codes
         if (apiError.status === 401) {
-          errorTitle = "Incorrect credentials"
+          errorTitle = "Incorrect email or password"
           errorMsg = "Email or password is incorrect."
-        } else if (apiError.status === 400) {
+        } else if (apiError.status === 400 || apiError.status === 422) {
           errorTitle = "Invalid input"
           errorMsg = errorMsg || "Please check your email and password"
         } else if (apiError.status === 500) {

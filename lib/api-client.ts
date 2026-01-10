@@ -158,12 +158,32 @@ async function handleAuthResponse<T>(res: Response): Promise<T> {
     const text = await res.text()
     data = text ? JSON.parse(text) : {}
   } catch {
-    throw new Error('Invalid response format')
+    // If JSON parse fails, return empty object but still handle error status
+    data = {}
+  }
+
+  // Debug log in development only (after parsing)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development' && !res.ok) {
+    console.log(`[Auth API Debug] Error response parsed:`, {
+      status: res.status,
+      detail: data.detail,
+      message: data.message,
+    })
   }
 
   if (!res.ok) {
+    // Extract error message - FastAPI returns {"detail": "..."}
     const errorMessage = data.detail || data.message || `Request failed with status ${res.status}`
     throw new APIError(res.status, data, errorMessage)
+  }
+
+  // Debug log success in development only
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log(`[Auth API Debug] Success response parsed:`, {
+      has_access_token: !!data.access_token,
+      has_user: !!data.user,
+      user_plan: data.user?.plan,
+    })
   }
 
   return data as T
@@ -202,6 +222,16 @@ export const authAPI = {
       },
       body: form.toString(),
     })
+
+    // Debug log in development only
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      const clonedRes = res.clone()
+      clonedRes.json().then((data: any) => {
+        console.log(`[Auth API Debug] Login response status: ${res.status}`, {
+          has_access_token: !!data.access_token,
+        })
+      }).catch(() => {})
+    }
 
     return handleAuthResponse<{ access_token: string; token_type: string }>(res)
   },
@@ -245,11 +275,23 @@ export const authAPI = {
       body: form.toString(),
     })
 
+    // Debug log in development only (log status before parsing)
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.log(`[Auth API Debug] Signup response status: ${res.status}`, {
+        ok: res.ok,
+        statusText: res.statusText,
+      })
+    }
+
     return handleAuthResponse<{
-      message: string
-      user_id: number
       access_token: string
       token_type: string
+      user: {
+        id: number
+        email: string
+        full_name: string
+        plan: string
+      }
     }>(res)
   },
 }

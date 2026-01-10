@@ -5,6 +5,7 @@ export interface User {
   email: string
   full_name: string
   visa_status?: string
+  plan?: string
 }
 
 export const auth = {
@@ -34,14 +35,24 @@ export const auth = {
     // Store token if provided (backend now returns access_token on signup)
     if (response.access_token) {
       localStorage.setItem('token', response.access_token)
-      // Store basic user info
+      // Store user info from response (includes id, email, full_name, plan)
       const user: User = {
-        id: response.user_id,
-        email: data.email,
-        full_name: data.full_name,
+        id: response.user.id,
+        email: response.user.email,
+        full_name: response.user.full_name,
         visa_status: data.visa_status,
+        plan: response.user.plan,
       }
       localStorage.setItem('user', JSON.stringify(user))
+      
+      // Debug log in development only
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth Debug] Signup success - token and user stored', {
+          user_id: user.id,
+          email: user.email,
+          plan: user.plan,
+        })
+      }
     }
     return response
   },

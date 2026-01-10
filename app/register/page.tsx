@@ -79,6 +79,16 @@ export default function RegisterPage() {
       return
     }
 
+    // Debug log in development only
+    if (process.env.NODE_ENV === 'development') {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+      console.log(`[Register Debug] Submitting signup`, {
+        baseURL: apiUrl,
+        endpoint: '/auth/signup',
+        email: data.email,
+      })
+    }
+
     try {
       const response = await auth.signup({
         full_name: data.full_name,
@@ -89,8 +99,16 @@ export default function RegisterPage() {
       
       // If signup returns access_token, user is automatically logged in
       if (response.access_token) {
+        // Debug log in development only
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Register Debug] Signup success - status 200, redirecting to /dashboard', {
+            user_id: response.user?.id,
+            plan: response.user?.plan,
+          })
+        }
+        
         toast({
-          title: "Account created successfully!",
+          title: "Account created — logging you in",
           description: "Welcome to Hireblaze! Redirecting to dashboard...",
         })
         router.push("/dashboard")
@@ -107,10 +125,20 @@ export default function RegisterPage() {
       let errorMsg = "Failed to create account. Please try again."
       let errorTitle = "Registration failed"
       let shouldRedirectToLogin = false
+      let emailToRedirect: string | undefined = undefined
       
       // Handle APIError from api-client
       if (err && typeof err === 'object' && 'status' in err) {
         const apiError = err as any
+        
+        // Debug log in development only
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Register Debug] Signup error', {
+            status: apiError.status,
+            detail: apiError.detail,
+            message: apiError.message,
+          })
+        }
         
         // Extract error message from different possible formats
         if (apiError.detail) {
@@ -126,28 +154,20 @@ export default function RegisterPage() {
         }
         
         // Handle specific status codes
-        if (apiError.status === 400) {
-          // Check if it's an email already exists error
-          const errorMsgLower = typeof errorMsg === 'string' ? errorMsg.toLowerCase() : ''
-          if (
-            errorMsgLower.includes('email already') ||
-            errorMsgLower.includes('already registered') ||
-            errorMsgLower.includes('user already exists') ||
-            errorMsgLower.includes('already exists')
-          ) {
-            errorTitle = "Account already exists"
-            errorMsg = "This email is already registered. Please sign in."
-            shouldRedirectToLogin = true
-          } else {
-            errorTitle = "Invalid input"
-            if (!errorMsg || errorMsg === "Failed to create account. Please try again.") {
-              errorMsg = "Please check your input and try again."
-            }
-          }
-        } else if (apiError.status === 409) {
-          errorTitle = "Account already exists"
-          errorMsg = "This email is already registered. Please sign in."
+        if (apiError.status === 409) {
+          // 409 Conflict - Email already exists
+          errorTitle = "Email already registered — please log in"
+          errorMsg = typeof errorMsg === 'string' && errorMsg.includes('Please log in') 
+            ? errorMsg 
+            : "This email is already registered. Please log in."
           shouldRedirectToLogin = true
+          emailToRedirect = data.email
+        } else if (apiError.status === 400 || apiError.status === 422) {
+          // 400/422 - Validation errors
+          errorTitle = "Invalid input"
+          if (!errorMsg || errorMsg === "Failed to create account. Please try again.") {
+            errorMsg = "Please check your input and try again."
+          }
         } else if (apiError.status === 401) {
           errorTitle = "Authentication failed"
         } else if (apiError.status === 500) {
@@ -164,10 +184,13 @@ export default function RegisterPage() {
         variant: "destructive",
       })
       
-      // Redirect to login if account already exists (preserve form values until redirect)
+      // Redirect to login if account already exists (with email param for autofill)
       if (shouldRedirectToLogin) {
+        const redirectUrl = emailToRedirect 
+          ? `/login?reason=exists&email=${encodeURIComponent(emailToRedirect)}`
+          : "/login?reason=exists"
         setTimeout(() => {
-          router.push("/login?reason=exists")
+          router.push(redirectUrl)
         }, 1500)
       }
     }
