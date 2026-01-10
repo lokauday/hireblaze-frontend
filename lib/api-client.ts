@@ -3,30 +3,90 @@
  * Handles authentication, error handling, and request/response transformation.
  */
 
+// API Configuration
+// Defaults to '/api/v1' as specified (configurable via NEXT_PUBLIC_API_PREFIX env var)
+// To disable prefix: set NEXT_PUBLIC_API_PREFIX= in .env.local
+const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX !== undefined 
+  ? process.env.NEXT_PUBLIC_API_PREFIX 
+  : '/api/v1'
 
-// Get base URL at runtime (not build time) with validation
+/**
+ * Get base URL from environment variables.
+ * Supports both NEXT_PUBLIC_API_BASE_URL and NEXT_PUBLIC_API_URL for backward compatibility.
+ */
 function getBaseURL(): string {
-  // Access env var at runtime (works in both server and client)
-  const url = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+  // Try NEXT_PUBLIC_API_BASE_URL first (new standard), fallback to NEXT_PUBLIC_API_URL (legacy)
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
   
-  // Warn in development if URL is missing
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_API_URL) {
-    console.warn('⚠️ NEXT_PUBLIC_API_URL not set. Using default production URL.')
+  // Throw error if missing in production
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL) {
+      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
+      console.error(`❌ ${errorMsg}`)
+      throw new Error(errorMsg)
+    }
   }
   
-  return url
+  // Warn in development if URL is missing
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL) {
+      console.warn('⚠️ NEXT_PUBLIC_API_BASE_URL not set. Using default production URL.')
+    }
+  }
+  
+  return baseUrl
+}
+
+/**
+ * Build full API URL with prefix.
+ * Handles cases where base URL may already include the prefix to avoid double-prefixing.
+ * 
+ * Examples:
+ * - BASE=https://api.example.com, prefix=/api/v1, endpoint=/usage
+ *   → https://api.example.com/api/v1/usage
+ * - BASE=https://api.example.com/api/v1, prefix=/api/v1, endpoint=/usage
+ *   → https://api.example.com/api/v1/usage (no double prefix)
+ */
+function buildAPIUrl(endpoint: string): string {
+  const baseUrl = getBaseURL()
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  
+  // Normalize base URL (remove trailing slash)
+  let cleanBaseUrl = baseUrl.replace(/\/+$/, '') // Remove one or more trailing slashes
+  
+  // If prefix is empty string, return base URL + endpoint directly (no prefix)
+  if (!API_PREFIX || API_PREFIX.trim() === '') {
+    return `${cleanBaseUrl}${normalizedEndpoint}`
+  }
+  
+  // Normalize prefix (ensure starts with /, remove trailing slash)
+  let normalizedPrefix = API_PREFIX.trim()
+  if (!normalizedPrefix.startsWith('/')) {
+    normalizedPrefix = `/${normalizedPrefix}`
+  }
+  normalizedPrefix = normalizedPrefix.replace(/\/+$/, '') // Remove trailing slashes
+  
+  // Check if base URL already ends with the normalized prefix to avoid double-prefixing
+  // Also check for common variations
+  const baseEndsWithPrefix = cleanBaseUrl.endsWith(normalizedPrefix) || 
+                             cleanBaseUrl.endsWith('/api/v1')
+  
+  // Also check if base URL contains the prefix somewhere (more lenient check)
+  const baseContainsPrefix = cleanBaseUrl.includes('/api/v1/') || 
+                            (normalizedPrefix === '/api/v1' && cleanBaseUrl.includes('/api/v1'))
+  
+  if (baseEndsWithPrefix || baseContainsPrefix) {
+    // Base URL already has prefix, use endpoint as-is
+    return `${cleanBaseUrl}${normalizedEndpoint}`
+  } else {
+    // Add prefix before endpoint: ${BASE}${PREFIX}${endpoint}
+    return `${cleanBaseUrl}${normalizedPrefix}${normalizedEndpoint}`
+  }
 }
 
 // Runtime check for API URL (called on each request, not at build time)
 function getBaseURLRuntime(): string {
-  const url = getBaseURL()
-  
-  // In production, ensure URL is set
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
-    console.error('❌ NEXT_PUBLIC_API_URL is not set in production! API requests will fail.')
-  }
-  
-  return url
+  return getBaseURL()
 }
 
 interface RequestOptions extends RequestInit {
@@ -44,13 +104,54 @@ export class APIError extends Error {
   }
 }
 
+/**
+ * Standardized API GET helper with query params support.
+ * Builds URLs like: ${BASE_URL}${API_PREFIX}${path}?query
+ * 
+ * @example
+ * apiGet('/usage') → GET {BASE}/api/v1/usage
+ * apiGet('/documents', { page: 1, page_size: 10 }) → GET {BASE}/api/v1/documents?page=1&page_size=10
+ */
+export async function apiGet<T>(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>
+): Promise<T> {
+  const queryParams = new URLSearchParams()
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, String(value))
+      }
+    })
+  }
+  
+  const queryString = queryParams.toString()
+  const endpoint = queryString ? `${path}?${queryString}` : path
+  
+  return apiRequest<T>(endpoint, { method: 'GET' })
+}
+
+/**
+ * Standardized API POST helper.
+ * Builds URLs like: ${BASE_URL}${API_PREFIX}${path}
+ * 
+ * @example
+ * apiPost('/auth/login', { email: '...', password: '...' }) → POST {BASE}/api/v1/auth/login
+ */
+export async function apiPost<T>(
+  path: string,
+  body?: Record<string, any>
+): Promise<T> {
+  return apiRequest<T>(path, {
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
+  })
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  // Ensure endpoint starts with / for normal API calls
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-
   const { requireAuth = true, ...fetchOptions } = options
 
   // Use plain object for headers (Record<string, string>)
@@ -86,13 +187,26 @@ export async function apiRequest<T>(
     }
   }
 
-  // Get base URL at runtime (not build time) to ensure env vars are available
-  const baseURL = getBaseURLRuntime()
-  const url = `${baseURL}${normalizedEndpoint}`
+  // Build full URL with API prefix
+  const url = buildAPIUrl(endpoint)
   
-  // Log in development only (helpful for debugging)
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.log(`[API Request] ${options.method || 'GET'} ${url}`)
+  // Debug logging for specific endpoints (always log in dev, errors in prod)
+  const debugEndpoints = ['/usage', '/documents', '/history']
+  const isDev = typeof window !== 'undefined' && process.env.NODE_ENV === 'development'
+  const shouldLog = isDev || debugEndpoints.some(ep => endpoint.startsWith(ep))
+  
+  if (shouldLog) {
+    const matchesDebugEndpoint = debugEndpoints.some(ep => endpoint.startsWith(ep))
+    if (matchesDebugEndpoint || isDev) {
+      console.log(`[API Request Debug] ${options.method || 'GET'} ${url}`, {
+        endpoint,
+        baseUrl: getBaseURL(),
+        prefix: API_PREFIX || '(none)',
+        finalUrl: url
+      })
+    } else {
+      console.log(`[API Request] ${options.method || 'GET'} ${url}`)
+    }
   }
   
   try {
@@ -129,6 +243,16 @@ export async function apiRequest<T>(
         errorMessage = errorDetail
       } else if (errorDetail && typeof errorDetail === "object") {
         errorMessage = errorDetail.message || errorDetail.detail || JSON.stringify(errorDetail)
+      }
+      
+      // Log error with full URL for debugging (especially for 404s)
+      if (typeof window !== 'undefined') {
+        console.error(`[API Error] ${response.status} ${options.method || 'GET'} ${url}`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage,
+          endpoint
+        })
       }
       
       throw new APIError(
@@ -193,12 +317,12 @@ async function handleAuthResponse<T>(res: Response): Promise<T> {
 // Auth API - Direct fetch for form-urlencoded endpoints (backend accepts both JSON and form)
 export const authAPI = {
   login: async (email: string, password: string) => {
-    // Get base URL at runtime
-    const baseURL = getBaseURLRuntime()
+    // Build URL with API prefix
+    const url = buildAPIUrl('/auth/login')
     
     // Runtime guard: check if API URL is missing
-    if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-      const errorMsg = 'API URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.'
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
       console.error(`❌ ${errorMsg}`)
       throw new Error(errorMsg)
     }
@@ -208,8 +332,6 @@ export const authAPI = {
     const form = new URLSearchParams()
     form.set('username', email.trim().toLowerCase()) // OAuth2PasswordRequestForm uses 'username' field
     form.set('password', password)
-
-    const url = `${baseURL}/auth/login`
     
     // Log in development only
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -243,12 +365,12 @@ export const authAPI = {
     password: string
     visa_status?: string
   }) => {
-    // Get base URL at runtime
-    const baseURL = getBaseURLRuntime()
+    // Build URL with API prefix
+    const url = buildAPIUrl('/auth/signup')
     
     // Runtime guard: check if API URL is missing
-    if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-      const errorMsg = 'API URL not configured. Please set NEXT_PUBLIC_API_URL environment variable.'
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
       console.error(`❌ ${errorMsg}`)
       throw new Error(errorMsg)
     }
@@ -260,8 +382,6 @@ export const authAPI = {
     if (payload.visa_status) {
       form.set('visa_status', payload.visa_status)
     }
-
-    const url = `${baseURL}/auth/signup`
     
     // Log in development only
     if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -299,8 +419,12 @@ export const authAPI = {
 
 // Usage API
 export const usageAPI = {
+  /**
+   * Get current month usage statistics for the authenticated user.
+   * Calls: GET {BASE}/api/v1/usage
+   */
   getUsage: async () => {
-    return apiRequest<{
+    return apiGet<{
       plan: string
       month_key: string
       features: {
@@ -311,7 +435,7 @@ export const usageAPI = {
           unlimited: boolean
         }
       }
-    }>('/me/usage')
+    }>('/usage')
   },
 }
 

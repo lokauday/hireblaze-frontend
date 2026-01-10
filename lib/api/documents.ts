@@ -1,7 +1,7 @@
 /**
  * Documents API client for AI Drive.
  */
-import { apiRequest, APIError } from '../api-client'
+import { apiRequest, apiGet, APIError } from '../api-client'
 
 export interface AppDocument {
   id: number
@@ -58,16 +58,12 @@ export const documentsAPI = {
    * List documents with filters.
    */
   list: async (filters?: DocumentFilters): Promise<DocumentListResponse> => {
-    const params = new URLSearchParams()
-    if (filters?.type) params.append('type', filters.type)
-    if (filters?.tags) params.append('tags', filters.tags)
-    if (filters?.search) params.append('search', filters.search)
-    if (filters?.page) params.append('page', filters.page.toString())
-    if (filters?.page_size) params.append('page_size', filters.page_size.toString())
-
-    const query = params.toString()
-    return apiRequest<DocumentListResponse>(`/documents${query ? `?${query}` : ''}`, {
-      method: 'GET',
+    return apiGet<DocumentListResponse>('/documents', {
+      type: filters?.type,
+      tags: filters?.tags,
+      search: filters?.search,
+      page: filters?.page,
+      page_size: filters?.page_size,
     })
   },
 

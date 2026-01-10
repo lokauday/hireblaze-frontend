@@ -102,11 +102,17 @@ export default function DashboardPage() {
       const usageData = await usageAPI.getUsage()
       setUsage(usageData)
     } catch (err: any) {
-      if (err instanceof APIError) {
+      console.error("Failed to load usage data:", err)
+      // Don't show scary error toast for 404s - just log and show empty state
+      if (err instanceof APIError && err.status === 404) {
+        // 404 means endpoint not found - show empty state gracefully
+        setUsage(null)
+      } else if (err instanceof APIError && err.status !== 404) {
+        // Only show toast for non-404 errors (network, auth, etc.)
         toast({
-          title: "Failed to load usage data",
-          description: err.message || "Please try again later.",
-          variant: "destructive",
+          title: "Unable to load usage data",
+          description: "Your usage information will appear here once available.",
+          variant: "default",
         })
       }
     } finally {
@@ -116,9 +122,11 @@ export default function DashboardPage() {
     // Fetch recent documents
     try {
       const docsResponse = await documentsAPI.list({ page: 1, page_size: 5 })
-      setRecentDocuments(docsResponse.documents)
+      setRecentDocuments(docsResponse.documents || [])
     } catch (err: any) {
       console.error("Failed to load recent documents:", err)
+      // Show empty array on error - UI will handle empty state
+      setRecentDocuments([])
     } finally {
       setLoadingDocuments(false)
     }
@@ -126,9 +134,11 @@ export default function DashboardPage() {
     // Fetch recent activity
     try {
       const activityResponse = await historyAPI.list({ page: 1, page_size: 10 })
-      setRecentActivity(activityResponse.entries)
+      setRecentActivity(activityResponse.entries || [])
     } catch (err: any) {
       console.error("Failed to load activity:", err)
+      // Show empty array on error - UI will handle empty state
+      setRecentActivity([])
     } finally {
       setLoadingActivity(false)
     }
