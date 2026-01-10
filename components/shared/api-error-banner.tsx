@@ -34,8 +34,9 @@ export function APIErrorBanner() {
 }
 
 // Helper to check if API is configured (for runtime checks)
+// Always returns true now since we have a fallback URL
 export function isAPIConfigured(): boolean {
   if (typeof window === 'undefined') return true // Server-side, assume configured
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
-  return !!apiUrl && apiUrl.trim() !== ''
+  // Always return true - we have a fallback URL in getBaseURL()
+  return true
 }
