@@ -71,6 +71,21 @@ export interface OutreachResponse {
   tone: string
 }
 
+export interface TransformRequest {
+  mode: 'rewrite' | 'shorten' | 'expand' | 'ats_optimize' | 'fix_grammar' | 'add_keywords'
+  text: string
+  context?: {
+    job_title?: string
+    company?: string
+    job_description?: string
+    seniority?: string
+  }
+}
+
+export interface TransformResponse {
+  output: string
+}
+
 export const aiAPI = {
   /**
    * Analyze job match between resume and job description.
@@ -107,6 +122,16 @@ export const aiAPI = {
    */
   outreach: async (data: OutreachRequest): Promise<OutreachResponse> => {
     return apiRequest<OutreachResponse>('/ai/outreach', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  /**
+   * Transform text content using AI (for editor).
+   */
+  transformText: async (data: TransformRequest): Promise<TransformResponse> => {
+    return apiRequest<TransformResponse>('/ai/transform', {
       method: 'POST',
       body: JSON.stringify(data),
     })

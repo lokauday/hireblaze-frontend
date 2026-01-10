@@ -9,11 +9,16 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { aiAPI, type TransformRequest } from "@/lib/api/ai"
+import { APIError } from "@/lib/api-client"
+import { AIPreviewModal } from "./ai-preview-modal"
 
 interface AIPanelProps {
   documentId: number
   documentContent: string
+  selectedText?: string
   onContentUpdate: (newContent: string) => void
+  onSelectedTextChange?: (text: string) => void
   className?: string
 }
 
@@ -21,19 +26,37 @@ const AI_ACTIONS = [
   { id: "rewrite", label: "Rewrite", description: "Improve clarity and flow", icon: Wand2 },
   { id: "shorten", label: "Shorten", description: "Make it more concise", icon: Minimize2 },
   { id: "expand", label: "Expand", description: "Add more detail", icon: Maximize2 },
-  { id: "bulletize", label: "Bulletize", description: "Convert to bullet points", icon: RotateCcw },
-  { id: "quantize", label: "Quantize", description: "Add metrics and numbers", icon: ArrowRight },
+  { id: "fix_grammar", label: "Fix Grammar", description: "Fix grammar and spelling", icon: RotateCcw },
+  { id: "add_keywords", label: "Add Keywords", description: "Add relevant keywords", icon: ArrowRight },
   { id: "ats_optimize", label: "ATS Optimize", description: "Optimize for ATS systems", icon: Sparkles },
 ] as const
 
-export function AIPanel({ documentId, documentContent, onContentUpdate, className }: AIPanelProps) {
+export function AIPanel({ 
+  documentId, 
+  documentContent, 
+  selectedText: propSelectedText = "",
+  onContentUpdate, 
+  onSelectedTextChange,
+  className 
+}: AIPanelProps) {
   const { toast } = useToast()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [selectedText, setSelectedText] = useState("")
+  const [internalSelectedText, setInternalSelectedText] = useState("")
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  
+  // Use prop if provided, otherwise use internal state
+  const selectedText = propSelectedText || internalSelectedText
+  const setSelectedText = onSelectedTextChange || setInternalSelectedText
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewBefore, setPreviewBefore] = useState("")
+  const [previewAfter, setPreviewAfter] = useState("")
+  const [pendingMode, setPendingMode] = useState<string | null>(null)
 
   const handleAction = async (actionId: string) => {
-    if (!documentContent.trim() && !selectedText.trim()) {
+    // Determine target text: selected text or full document
+    const targetText = selectedText.trim() || documentContent.trim()
+    
+    if (!targetText) {
       toast({
         title: "Error",
         description: "Please select text or ensure document has content",
@@ -45,57 +68,110 @@ export function AIPanel({ documentId, documentContent, onContentUpdate, classNam
     try {
       setIsProcessing(true)
       setSelectedAction(actionId)
+      setPendingMode(actionId)
+      setPreviewBefore(targetText)
+      setPreviewAfter("") // Clear previous result
+      setPreviewOpen(true) // Open modal immediately to show "processing"
       
-      // TODO: Integrate with actual AI service
-      // For now, simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Map action IDs to backend modes
+      const modeMap: Record<string, TransformRequest['mode']> = {
+        rewrite: 'rewrite',
+        shorten: 'shorten',
+        expand: 'expand',
+        fix_grammar: 'fix_grammar',
+        add_keywords: 'add_keywords',
+        ats_optimize: 'ats_optimize',
+      }
       
-      // Simulated AI transformation
-      let transformed = selectedText || documentContent
-      switch (actionId) {
-        case "rewrite":
-          transformed = `[Rewritten version]\n\n${transformed}`
-          break
-        case "shorten":
-          transformed = transformed.split(".").slice(0, 2).join(".") + "..."
-          break
-        case "expand":
-          transformed = `${transformed}\n\n[Additional context and details...]`
-          break
-        case "bulletize":
-          transformed = transformed.split(".").map(s => `• ${s.trim()}`).join("\n")
-          break
-        case "quantize":
-          transformed = `${transformed}\n\n[Added metrics: 95% success rate, $50K revenue increase]`
-          break
-        case "ats_optimize":
-          transformed = `[ATS Optimized]\n\n${transformed.replace(/and/g, "&")}`
-          break
-      }
-
-      // If text was selected, replace only that part; otherwise replace all
-      if (selectedText) {
-        const newContent = documentContent.replace(selectedText, transformed)
-        onContentUpdate(newContent)
-      } else {
-        onContentUpdate(transformed)
-      }
-
+      const mode = modeMap[actionId] || 'rewrite'
+      
+      // Call backend AI transform endpoint
+      const response = await aiAPI.transformText({
+        mode,
+        text: targetText,
+        context: {}, // Can be extended later with job context
+      })
+      
+      setPreviewAfter(response.output)
+      
       toast({
-        title: "Success",
-        description: "Content updated successfully",
+        title: "AI transformation complete",
+        description: "Review the preview and click Apply to update your document",
       })
     } catch (error: any) {
       console.error("AI action failed:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to process AI action",
-        variant: "destructive",
-      })
+      setPreviewOpen(false)
+      
+      // Handle different error types
+      if (error instanceof APIError) {
+        if (error.status === 500 && error.message?.includes("AI not configured")) {
+          toast({
+            title: "AI not configured",
+            description: "OpenAI API key is not set. Please configure it in the backend.",
+            variant: "destructive",
+          })
+        } else if (error.status === 413) {
+          toast({
+            title: "Text too long",
+            description: error.message || "Please select a shorter text to transform.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "AI transformation failed",
+            description: error.message || "Failed to process AI action. Please try again.",
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to process AI action",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsProcessing(false)
       setSelectedAction(null)
     }
+  }
+
+  const handleApply = () => {
+    if (!previewAfter) {
+      toast({
+        title: "Error",
+        description: "No transformation to apply",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Apply transformation: if text was selected, replace it; otherwise replace entire content
+    if (selectedText.trim() && documentContent.includes(selectedText)) {
+      // Replace first occurrence of selected text (most common case)
+      const startIndex = documentContent.indexOf(selectedText)
+      const newContent = 
+        documentContent.substring(0, startIndex) + 
+        previewAfter + 
+        documentContent.substring(startIndex + selectedText.length)
+      onContentUpdate(newContent)
+    } else {
+      // Replace entire document content
+      onContentUpdate(previewAfter)
+    }
+
+    // Clear selection and close modal
+    setSelectedText("")
+    setPreviewOpen(false)
+    setPreviewBefore("")
+    setPreviewAfter("")
+    setPendingMode(null)
+
+    const actionLabel = AI_ACTIONS.find(a => a.id === pendingMode)?.label || "Transformation"
+    toast({
+      title: "Applied",
+      description: `Applied: ${actionLabel}`,
+    })
   }
 
   return (
@@ -120,11 +196,16 @@ export function AIPanel({ documentId, documentContent, onContentUpdate, classNam
           <div className="space-y-2">
             <label className="text-sm font-medium">Selected Text (Optional)</label>
             <Textarea
-              placeholder="Select text in the editor to transform, or leave empty to transform entire document"
+              placeholder={selectedText ? selectedText.substring(0, 100) + (selectedText.length > 100 ? "..." : "") : "Select text in the editor to transform, or leave empty to transform entire document"}
               value={selectedText}
-              onChange={(e) => setSelectedText(e.target.value)}
-              className="min-h-[80px] text-sm"
+              readOnly
+              className="min-h-[80px] text-sm bg-muted/50 cursor-default"
             />
+            {selectedText && (
+              <p className="text-xs text-muted-foreground">
+                {selectedText.length} characters selected. Will transform only this portion.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -279,6 +360,27 @@ Best regards,
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Preview Modal */}
+      <AIPreviewModal
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open)
+          if (!open && !isProcessing) {
+            // Reset on cancel (unless still processing)
+            setPreviewBefore("")
+            setPreviewAfter("")
+            setPendingMode(null)
+            setIsProcessing(false)
+            setSelectedAction(null)
+          }
+        }}
+        mode={pendingMode || "rewrite"}
+        before={previewBefore}
+        after={previewAfter}
+        onApply={handleApply}
+        isLoading={isProcessing}
+      />
     </div>
   )
 }

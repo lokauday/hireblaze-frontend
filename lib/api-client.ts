@@ -192,7 +192,7 @@ export async function apiRequest<T>(
   const url = buildAPIUrl(endpoint)
   
   // Debug logging for specific endpoints (always log in dev, errors in prod)
-  const debugEndpoints = ['/usage', '/documents', '/history']
+  const debugEndpoints = ['/usage', '/documents', '/history', '/ai/transform']
   const isDev = typeof window !== 'undefined' && process.env.NODE_ENV === 'development'
   const shouldLog = isDev || debugEndpoints.some(ep => endpoint.startsWith(ep))
   

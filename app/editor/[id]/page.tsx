@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Save, Download, FileText } from "lucide-react"
 import { motion } from "framer-motion"
@@ -40,6 +40,8 @@ export default function EditorPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [showOutline, setShowOutline] = useState(true)
   const [showAIPanel, setShowAIPanel] = useState(true)
+  const [selectedText, setSelectedText] = useState("")
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   
 
   useEffect(() => {
@@ -165,6 +167,14 @@ export default function EditorPage() {
   const handleContentUpdate = (newContent: string) => {
     setContent(newContent)
     setHasUnsavedChanges(true)
+    // Clear selection after content update
+    setSelectedText("")
+    // Try to restore focus to textarea
+    if (textareaRef.current) {
+      setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 100)
+    }
   }
 
   // Keyboard shortcuts
@@ -521,10 +531,19 @@ export default function EditorPage() {
           />
           <div className="flex-1 overflow-hidden relative">
             <Textarea
+              ref={textareaRef}
               value={content}
               onChange={(e) => {
                 setContent(e.target.value)
                 setHasUnsavedChanges(true)
+              }}
+              onSelect={(e) => {
+                // Capture selected text from textarea
+                const textarea = e.currentTarget
+                const start = textarea.selectionStart
+                const end = textarea.selectionEnd
+                const selected = content.substring(start, end)
+                setSelectedText(selected)
               }}
               placeholder="Start typing your document... Use markdown syntax for formatting:
 # Heading 1
@@ -560,7 +579,9 @@ export default function EditorPage() {
             <AIPanel
               documentId={doc?.id || 0}
               documentContent={content}
+              selectedText={selectedText}
               onContentUpdate={handleContentUpdate}
+              onSelectedTextChange={setSelectedText}
               className="h-full"
             />
           </motion.div>
