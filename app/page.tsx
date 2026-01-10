@@ -34,11 +34,11 @@ export default function LandingPage() {
     setMounted(true)
   }, [])
 
-  const handleTryDemo = () => {
+  const handleGetStarted = () => {
     if (auth.isAuthenticated()) {
       router.push("/dashboard")
     } else {
-      router.push("/login")
+      router.push("/register")
     }
   }
 
@@ -106,8 +106,8 @@ export default function LandingPage() {
             <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Sign In
             </Link>
-            <Button onClick={handleTryDemo} className="gap-2">
-              Try Demo
+            <Button onClick={handleGetStarted} className="gap-2">
+              Get Started
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -136,8 +136,8 @@ export default function LandingPage() {
               everything you need to stand out in today&apos;s competitive job market.
             </p>
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <Button size="lg" onClick={handleTryDemo} className="gap-2">
-                Start Free Trial
+              <Button size="lg" onClick={handleGetStarted} className="gap-2">
+                Get Started Free
                 <ArrowRight className="h-5 w-5" />
               </Button>
               <Button size="lg" variant="outline" asChild>
@@ -269,8 +269,8 @@ export default function LandingPage() {
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                   <span>Advanced analytics</span>
                 </div>
-                <Button className="w-full mt-6" onClick={handleTryDemo}>
-                  Try Elite Free
+                <Button className="w-full mt-6" onClick={handleGetStarted}>
+                  Get Started
                 </Button>
               </CardContent>
             </Card>

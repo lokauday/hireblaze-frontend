@@ -6,7 +6,6 @@ import { motion } from "framer-motion"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { auth } from "@/lib/auth"
-import { isDemoMode, getDemoUser } from "@/lib/demo-mode"
 
 export default function DashboardLayout({
   children,
@@ -18,19 +17,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     const checkAuth = () => {
-      // In demo mode, bypass authentication
-      if (isDemoMode()) {
-        // Set demo user in localStorage if not already set
-        if (!auth.getUser()) {
-          const demoUser = getDemoUser()
-          localStorage.setItem('user', JSON.stringify(demoUser))
-          // Don't set token, but user object is enough for demo mode
-        }
-        setIsAuthenticated(true)
-        return
-      }
-
-      // Normal auth check
+      // Check for authentication token
       const token = auth.getToken()
       if (!token) {
         // No token found, redirect to login

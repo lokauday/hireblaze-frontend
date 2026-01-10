@@ -1,5 +1,4 @@
 import { authAPI } from './api-client'
-import { isDemoMode, getDemoUser } from './demo-mode'
 
 export interface User {
   id: number
@@ -77,11 +76,6 @@ export const auth = {
   getUser: (): User | null => {
     if (typeof window === 'undefined') return null
     
-    // In demo mode, return demo user
-    if (isDemoMode()) {
-      return getDemoUser()
-    }
-    
     const userStr = localStorage.getItem('user')
     if (!userStr) return null
     try {
@@ -93,11 +87,6 @@ export const auth = {
 
   isAuthenticated: (): boolean => {
     if (typeof window === 'undefined') return false
-    
-    // In demo mode, always return true
-    if (isDemoMode()) {
-      return true
-    }
     
     return !!localStorage.getItem('token')
   },

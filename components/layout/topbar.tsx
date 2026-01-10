@@ -17,17 +17,14 @@ import { Badge } from "@/components/ui/badge"
 import { auth, User as UserType } from "@/lib/auth"
 import { CommandMenu } from "./command-menu"
 import { cn } from "@/lib/utils"
-import { isDemoMode } from "@/lib/demo-mode"
 
 export function Topbar() {
   const router = useRouter()
   const [user, setUser] = useState<UserType | null>(null)
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
-  const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => {
     setUser(auth.getUser())
-    setDemoMode(isDemoMode())
   }, [])
 
   useEffect(() => {
@@ -45,13 +42,6 @@ export function Topbar() {
   return (
     <>
       <div className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6 sticky top-0 z-30">
-        {/* Demo Mode Badge */}
-        {demoMode && (
-          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/50">
-            DEMO MODE
-          </Badge>
-        )}
-        
         {/* Global Search / Command Menu Trigger */}
         <div className="flex-1">
           <Button

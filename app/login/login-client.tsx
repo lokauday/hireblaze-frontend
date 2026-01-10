@@ -186,90 +186,8 @@ export function LoginClient() {
     }
   }
 
-  const handleDemoLogin = async () => {
-    // Runtime guard: check if API is configured
-    if (!isAPIConfigured()) {
-      toast({
-        title: "API not configured",
-        description: "NEXT_PUBLIC_API_URL is not set. Please configure the API URL to continue.",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL
-    const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD
-
-    if (!demoEmail || !demoPassword) {
-      toast({
-        title: "Demo account not configured",
-        description: "Demo credentials are not available. Please sign up for an account.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Log in development
-    if (process.env.NODE_ENV === 'development') {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
-      console.log(`[Demo Login] Submitting login request to: ${apiUrl}/auth/login`)
-    }
-
-    setLoading(true)
-
-    try {
-      const response = await auth.login(demoEmail, demoPassword)
-      if (response.access_token) {
-        // Store token (already done in auth.login, but verify)
-        if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
-          localStorage.setItem('token', response.access_token)
-        }
-        
-        // Log in development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Demo Login] Token stored, redirecting to /dashboard')
-        }
-        
-        toast({
-          title: "Welcome!",
-          description: "Successfully signed in with demo account.",
-        })
-        router.push("/dashboard")
-      }
-    } catch (err: any) {
-      // Extract exact error message from backend response
-      let errorMsg = "Demo login failed"
-      
-      if (err && typeof err === 'object' && 'status' in err) {
-        const apiError = err as any
-        if (apiError.detail) {
-          if (typeof apiError.detail === 'string') {
-            errorMsg = apiError.detail
-          } else if (apiError.detail.detail) {
-            errorMsg = apiError.detail.detail
-          } else if (apiError.detail.error || apiError.detail.message) {
-            errorMsg = apiError.detail.error || apiError.detail.message || errorMsg
-          }
-        } else if (apiError.message) {
-          errorMsg = apiError.message
-        }
-      } else if (err && typeof err === 'object' && 'message' in err) {
-        errorMsg = err.message || errorMsg
-      }
-      
-      toast({
-        title: "Demo login failed",
-        description: typeof errorMsg === "string" ? errorMsg : "Demo login failed",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // Runtime check: disable form if API not configured
   const apiConfigured = isAPIConfigured()
-  const showDemoButton = process.env.NEXT_PUBLIC_DEMO_EMAIL && process.env.NEXT_PUBLIC_DEMO_PASSWORD
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
@@ -353,28 +271,6 @@ export function LoginClient() {
                 {loading ? "Signing in..." : !apiConfigured ? "API not configured" : "Sign in"}
               </Button>
             </form>
-            {showDemoButton && (
-              <>
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">Or</span>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleDemoLogin}
-                  disabled={loading}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Use Demo Account
-                </Button>
-              </>
-            )}
             <div className="mt-4 text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="text-primary hover:underline font-medium">
