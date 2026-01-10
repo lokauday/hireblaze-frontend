@@ -103,17 +103,22 @@ export default function DashboardPage() {
       setUsage(usageData)
     } catch (err: any) {
       console.error("Failed to load usage data:", err)
-      // Don't show scary error toast for 404s - just log and show empty state
-      if (err instanceof APIError && err.status === 404) {
-        // 404 means endpoint not found - show empty state gracefully
+      // Handle errors gracefully - don't show scary errors
+      if (err instanceof APIError) {
+        if (err.status === 404) {
+          // 404 means endpoint not found - show empty state gracefully
+          setUsage(null)
+        } else if (err.status === 401) {
+          // 401 means unauthorized - redirect will happen in api-client, just set null
+          setUsage(null)
+        } else {
+          // Other errors (500, network, etc.) - log but don't show scary toast
+          // Just set usage to null so UI shows empty state
+          setUsage(null)
+        }
+      } else {
+        // Non-API errors - just set null
         setUsage(null)
-      } else if (err instanceof APIError && err.status !== 404) {
-        // Only show toast for non-404 errors (network, auth, etc.)
-        toast({
-          title: "Unable to load usage data",
-          description: "Your usage information will appear here once available.",
-          variant: "default",
-        })
       }
     } finally {
       setLoading(false)
