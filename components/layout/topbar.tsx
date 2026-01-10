@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, User, LogOut, Bell, Settings, Sparkles } from "lucide-react"
+import { Search, User, LogOut, Bell, Settings, Sparkles, CheckCircle2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,15 +17,42 @@ import { Badge } from "@/components/ui/badge"
 import { auth, User as UserType } from "@/lib/auth"
 import { CommandMenu } from "./command-menu"
 import { cn } from "@/lib/utils"
+import { aiAPI } from "@/lib/api/ai"
+import { APIError } from "@/lib/api-client"
 
 export function Topbar() {
   const router = useRouter()
   const [user, setUser] = useState<UserType | null>(null)
   const [commandMenuOpen, setCommandMenuOpen] = useState(false)
+  const [aiStatus, setAiStatus] = useState<"checking" | "configured" | "not_configured">("checking")
 
   useEffect(() => {
     setUser(auth.getUser())
+    
+    // Check AI configuration status (client-side only)
+    if (typeof window !== "undefined") {
+      checkAIStatus()
+    }
   }, [])
+
+  const checkAIStatus = async () => {
+    if (typeof window === "undefined") return
+    
+    try {
+      await aiAPI.transformText({
+        mode: "rewrite",
+        text: "test",
+        context: {}
+      })
+      setAiStatus("configured")
+    } catch (error: any) {
+      if (error instanceof APIError && error.status === 500 && error.message?.includes("AI not configured")) {
+        setAiStatus("not_configured")
+      } else {
+        setAiStatus("configured") // Assume configured for other errors
+      }
+    }
+  }
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -58,6 +85,30 @@ export function Topbar() {
             </kbd>
           </Button>
         </div>
+
+        {/* AI Status Indicator (only in development) */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="flex items-center gap-2">
+            {aiStatus === "checking" && (
+              <Badge variant="outline" className="text-xs">
+                <Sparkles className="mr-1 h-3 w-3 animate-pulse" />
+                Checking AI...
+              </Badge>
+            )}
+            {aiStatus === "configured" && (
+              <Badge variant="default" className="text-xs bg-green-600">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                AI Connected
+              </Badge>
+            )}
+            {aiStatus === "not_configured" && (
+              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600">
+                <XCircle className="mr-1 h-3 w-3" />
+                AI Not Configured
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
