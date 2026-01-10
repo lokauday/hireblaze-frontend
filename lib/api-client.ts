@@ -38,19 +38,36 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { requireAuth = true, ...fetchOptions } = options
 
-  // Create Headers object from existing headers or empty object
-  const headers = new Headers(fetchOptions.headers ?? {})
+  // Use plain object for headers (Record<string, string>)
+  const headers: Record<string, string> = {}
+  
+  // Copy existing headers from options (if any)
+  if (fetchOptions.headers) {
+    if (fetchOptions.headers instanceof Headers) {
+      fetchOptions.headers.forEach((value, key) => {
+        headers[key] = value
+      })
+    } else if (Array.isArray(fetchOptions.headers)) {
+      // Handle array of tuples [string, string][]
+      fetchOptions.headers.forEach(([key, value]) => {
+        headers[key] = value
+      })
+    } else {
+      // Plain object
+      Object.assign(headers, fetchOptions.headers)
+    }
+  }
 
   // Set Content-Type only if not already set (e.g., for form-urlencoded)
-  if (!headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
+  if (!headers['Content-Type'] && !headers['content-type']) {
+    headers['Content-Type'] = 'application/json'
   }
 
   // Add auth token if required
   if (requireAuth && typeof window !== 'undefined') {
     const token = localStorage.getItem('token')
     if (token) {
-      headers.set('Authorization', `Bearer ${token}`)
+      headers['Authorization'] = `Bearer ${token}`
     }
   }
 
@@ -133,9 +150,11 @@ async function handleAuthResponse<T>(res: Response): Promise<T> {
   return data as T
 }
 
-// Auth API - Direct fetch for form-urlencoded endpoints
+// Auth API - Direct fetch for form-urlencoded endpoints (backend accepts both JSON and form)
 export const authAPI = {
   login: async (email: string, password: string) => {
+    // Use form-urlencoded (same as signup for consistency)
+    // Backend also accepts JSON with {"email": "...", "password": "..."}
     const form = new URLSearchParams()
     form.set('username', email.trim().toLowerCase()) // OAuth2PasswordRequestForm uses 'username' field
     form.set('password', password)
