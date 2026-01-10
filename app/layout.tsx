@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
 import { APIErrorBanner } from "@/components/shared/api-error-banner"
+import { ErrorBoundaryWrapper } from "@/components/shared/error-boundary-wrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -19,9 +20,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <APIErrorBanner />
-        {children}
-        <Toaster />
+        <ErrorBoundaryWrapper>
+          <APIErrorBanner />
+          {children}
+          <Toaster />
+        </ErrorBoundaryWrapper>
       </body>
     </html>
   )

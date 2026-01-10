@@ -71,6 +71,45 @@ export function LoginClient() {
     }
   }
 
+  const handleDemoLogin = async () => {
+    const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL
+    const demoPassword = process.env.NEXT_PUBLIC_DEMO_PASSWORD
+
+    if (!demoEmail || !demoPassword) {
+      toast({
+        title: "Demo account not configured",
+        description: "Demo credentials are not available. Please sign up for an account.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const response = await auth.login(demoEmail, demoPassword)
+      if (response.access_token) {
+        toast({
+          title: "Welcome!",
+          description: "Successfully signed in with demo account.",
+        })
+        router.push("/dashboard")
+      }
+    } catch (err: any) {
+      const errorMsg =
+        err.detail?.detail || err.detail || err.message || "Demo login failed"
+      toast({
+        title: "Demo login failed",
+        description: typeof errorMsg === "string" ? errorMsg : "Demo login failed",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const showDemoButton = process.env.NEXT_PUBLIC_DEMO_EMAIL && process.env.NEXT_PUBLIC_DEMO_PASSWORD
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
       <motion.div
@@ -136,6 +175,28 @@ export function LoginClient() {
                 {loading ? "Signing in..." : "Sign in"}
               </Button>
             </form>
+            {showDemoButton && (
+              <>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleDemoLogin}
+                  disabled={loading}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Use Demo Account
+                </Button>
+              </>
+            )}
             <div className="mt-4 text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="text-primary hover:underline font-medium">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Briefcase, LayoutGrid, List } from "lucide-react"
+import { Plus, Briefcase, LayoutGrid, List, Link2, FileSearch, BarChart3, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/layout/page-header"

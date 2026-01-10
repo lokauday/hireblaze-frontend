@@ -104,4 +104,37 @@ export const jobsAPI = {
       method: 'DELETE',
     })
   },
+
+  /**
+   * Import a job posting by URL.
+   */
+  importUrl: async (data: {
+    source_url: string
+    company?: string
+    title?: string
+    location?: string
+  }): Promise<any> => {
+    return apiRequest<any>('/jobs/import-url', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  /**
+   * Parse job description from a job posting.
+   */
+  parseJD: async (id: number): Promise<any> => {
+    return apiRequest<any>(`/jobs/${id}/parse-jd`, {
+      method: 'POST',
+    })
+  },
+
+  /**
+   * Get insights for a job posting.
+   */
+  getInsights: async (id: number): Promise<any> => {
+    return apiRequest<any>(`/jobs/${id}/insights`, {
+      method: 'GET',
+    })
+  },
 }

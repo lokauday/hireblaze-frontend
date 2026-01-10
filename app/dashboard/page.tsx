@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/layout/page-header"
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton"
 import { EmptyState } from "@/components/shared/empty-state"
+import { OnboardingChecklist } from "@/components/shared/onboarding-checklist"
 import { usageAPI, APIError } from "@/lib/api-client"
 import { documentsAPI, AppDocument } from "@/lib/api/documents"
 import { historyAPI, HistoryEntry } from "@/lib/api/history"
@@ -195,6 +196,7 @@ export default function DashboardPage() {
 
   return (
     <div className="page-transition space-y-6">
+      <OnboardingChecklist />
       <PageHeader
         title={`Welcome back, ${user?.full_name || user?.email?.split("@")[0] || "User"}`}
         subtitle={`Here's your overview for ${usage.month_key}`}
