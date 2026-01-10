@@ -16,21 +16,22 @@ const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX !== undefined
  */
 function getBaseURL(): string {
   // Try NEXT_PUBLIC_API_BASE_URL first (new standard), fallback to NEXT_PUBLIC_API_URL (legacy)
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'https://hireblaze-api-production.up.railway.app'
+  // Always provide a fallback to production URL so app doesn't break
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 
+                  process.env.NEXT_PUBLIC_API_URL || 
+                  'https://hireblaze-api-production.up.railway.app'
   
-  // Throw error if missing in production
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+  // Warn in development if URL is missing (but don't throw - use fallback)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL) {
-      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
-      console.error(`❌ ${errorMsg}`)
-      throw new Error(errorMsg)
+      console.warn('⚠️ NEXT_PUBLIC_API_BASE_URL not set. Using default production URL:', baseUrl)
     }
   }
   
-  // Warn in development if URL is missing
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // In production, log a warning but don't throw (use fallback)
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
     if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL) {
-      console.warn('⚠️ NEXT_PUBLIC_API_BASE_URL not set. Using default production URL.')
+      console.warn('⚠️ NEXT_PUBLIC_API_BASE_URL not set in production. Using fallback URL:', baseUrl)
     }
   }
   
@@ -317,15 +318,8 @@ async function handleAuthResponse<T>(res: Response): Promise<T> {
 // Auth API - Direct fetch for form-urlencoded endpoints (backend accepts both JSON and form)
 export const authAPI = {
   login: async (email: string, password: string) => {
-    // Build URL with API prefix
+    // Build URL with API prefix (has fallback, so no need to throw error)
     const url = buildAPIUrl('/auth/login')
-    
-    // Runtime guard: check if API URL is missing
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
-      console.error(`❌ ${errorMsg}`)
-      throw new Error(errorMsg)
-    }
     
     // Use form-urlencoded (same as signup for consistency)
     // Backend also accepts JSON with {"email": "...", "password": "..."}
@@ -365,15 +359,8 @@ export const authAPI = {
     password: string
     visa_status?: string
   }) => {
-    // Build URL with API prefix
+    // Build URL with API prefix (has fallback, so no need to throw error)
     const url = buildAPIUrl('/auth/signup')
-    
-    // Runtime guard: check if API URL is missing
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL && !process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-      const errorMsg = 'Missing NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL). Please set this environment variable.'
-      console.error(`❌ ${errorMsg}`)
-      throw new Error(errorMsg)
-    }
     
     const form = new URLSearchParams()
     form.set('full_name', payload.full_name.trim())
