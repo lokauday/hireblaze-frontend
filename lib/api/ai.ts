@@ -84,6 +84,12 @@ export interface TransformRequest {
 
 export interface TransformResponse {
   output: string
+  explanation?: {
+    what_changed?: string[]
+    why_changed?: string
+    keywords_added?: string[]
+    summary?: string
+  }
 }
 
 export const aiAPI = {

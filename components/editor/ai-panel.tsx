@@ -52,6 +52,7 @@ export function AIPanel({
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewBefore, setPreviewBefore] = useState("")
   const [previewAfter, setPreviewAfter] = useState("")
+  const [previewExplanation, setPreviewExplanation] = useState<any>(null)
   const [pendingMode, setPendingMode] = useState<string | null>(null)
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const userPlan = auth.getUser()?.plan || "free"
@@ -75,6 +76,7 @@ export function AIPanel({
       setPendingMode(actionId)
       setPreviewBefore(targetText)
       setPreviewAfter("") // Clear previous result
+      setPreviewExplanation(null) // Clear previous explanation
       setPreviewOpen(true) // Open modal immediately to show "processing"
       
       // Map action IDs to backend modes
@@ -384,6 +386,7 @@ Best regards,
         after={previewAfter}
         onApply={handleApply}
         isLoading={isProcessing}
+        explanation={previewExplanation}
       />
 
       {/* Upgrade Modal */}
