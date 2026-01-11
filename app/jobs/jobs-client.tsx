@@ -10,6 +10,7 @@ import { JobFilters } from "@/components/jobs/job-filters"
 import { JobTable } from "@/components/jobs/job-table"
 import { JobForm } from "@/components/jobs/job-form"
 import { ImportJobModal } from "@/components/jobs/import-job-modal"
+import { ParseJDModal } from "@/components/jobs/parse-jd-modal"
 import { JobInsightsDrawer } from "@/components/jobs/job-insights-drawer"
 import { EmptyState } from "@/components/shared/empty-state"
 import { LoadingSkeleton, TableSkeleton } from "@/components/shared/loading-skeleton"
@@ -38,6 +39,7 @@ export function JobsClient() {
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showParseJDModal, setShowParseJDModal] = useState(false)
   const [showInsightsDrawer, setShowInsightsDrawer] = useState(false)
   const [editingJob, setEditingJob] = useState<Job | null>(null)
   const [selectedJobForInsights, setSelectedJobForInsights] = useState<Job | null>(null)
@@ -452,6 +454,29 @@ export function JobsClient() {
         onSubmit={handleSubmit}
         initialData={editingJob}
         mode={editingJob ? "edit" : "create"}
+      />
+
+      {/* Parse JD Modal */}
+      <ParseJDModal
+        open={showParseJDModal}
+        onOpenChange={setShowParseJDModal}
+        onParsed={(data) => {
+          // Pre-populate job form with parsed data
+          setEditingJob({
+            id: 0,
+            user_id: 0,
+            company: data.company || "",
+            title: data.job_title || "",
+            url: null,
+            status: "saved",
+            notes: data.summary || "",
+            applied_at: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as Job)
+          setShowForm(true)
+          setShowParseJDModal(false)
+        }}
       />
 
       {/* Import Job Modal */}
