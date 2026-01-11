@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { apiRequest, APIError } from "@/lib/api-client"
+import { apiRequest, APIError, billingAPI } from "@/lib/api-client"
 import { auth } from "@/lib/auth"
 
 const plans = [
