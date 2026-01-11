@@ -7,13 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { User, Eye, EyeOff, Key, LogOut } from "lucide-react"
+import { User, Eye, EyeOff, Key, LogOut, CreditCard } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { useState } from "react"
+import { billingAPI, APIError } from "@/lib/api-client"
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [showApiKey, setShowApiKey] = useState(false)
+  const [billingLoading, setBillingLoading] = useState(false)
   const user = auth.getUser()
   const apiKey = auth.getToken() || ""
 
@@ -166,6 +171,63 @@ export default function SettingsPage() {
                 <LogOut className="mr-2 h-4 w-4" />
                 Log Out
               </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Billing Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Billing</CardTitle>
+              </div>
+              <CardDescription>
+                Manage your subscription and payment methods
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Current Plan</p>
+                  <p className="text-sm text-muted-foreground">
+                    {user?.plan === "premium" ? "Premium" : "Free"}
+                  </p>
+                </div>
+                <Badge variant={user?.plan === "premium" ? "default" : "outline"}>
+                  {user?.plan === "premium" ? "Premium" : "Free"}
+                </Badge>
+              </div>
+              {user?.plan === "premium" ? (
+                <Button
+                  variant="outline"
+                  onClick={handleManageBilling}
+                  disabled={billingLoading}
+                  className="w-full"
+                >
+                  {billingLoading ? (
+                    "Opening portal..."
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Manage Subscription
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  onClick={() => router.push("/pricing")}
+                  className="w-full"
+                >
+                  Upgrade to Premium
+                </Button>
+              )}
             </CardContent>
           </Card>
         </motion.div>

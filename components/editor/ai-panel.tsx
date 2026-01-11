@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { aiAPI, type TransformRequest } from "@/lib/api/ai"
 import { APIError } from "@/lib/api-client"
 import { AIPreviewModal } from "./ai-preview-modal"
+import { UpgradeModal } from "@/components/upgrade-modal"
+import { auth } from "@/lib/auth"
 
 interface AIPanelProps {
   documentId: number
@@ -51,6 +53,8 @@ export function AIPanel({
   const [previewBefore, setPreviewBefore] = useState("")
   const [previewAfter, setPreviewAfter] = useState("")
   const [pendingMode, setPendingMode] = useState<string | null>(null)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const userPlan = auth.getUser()?.plan || "free"
 
   const handleAction = async (actionId: string) => {
     // Determine target text: selected text or full document
@@ -380,6 +384,12 @@ Best regards,
         after={previewAfter}
         onApply={handleApply}
         isLoading={isProcessing}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
       />
     </div>
   )

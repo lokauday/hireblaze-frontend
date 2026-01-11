@@ -27,7 +27,8 @@ export function Topbar() {
   const [aiStatus, setAiStatus] = useState<"checking" | "configured" | "not_configured">("checking")
 
   useEffect(() => {
-    setUser(auth.getUser())
+    const currentUser = auth.getUser()
+    setUser(currentUser)
     
     // Check AI configuration status (client-side only)
     if (typeof window !== "undefined") {
@@ -85,6 +86,16 @@ export function Topbar() {
             </kbd>
           </Button>
         </div>
+
+        {/* Plan Badge */}
+        {user && (
+          <Badge
+            variant={user.plan === "premium" ? "default" : "outline"}
+            className="text-xs"
+          >
+            {user.plan === "premium" ? "Premium" : "Free"}
+          </Badge>
+        )}
 
         {/* AI Status Indicator (only in development) */}
         {process.env.NODE_ENV === "development" && (

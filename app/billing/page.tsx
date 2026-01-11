@@ -97,14 +97,22 @@ export default function BillingPage() {
     setLoading(plan)
     
     try {
-      const response = await billingAPI.createCheckoutSession({
-        plan: plan.toLowerCase(),
-        success_url: `${window.location.origin}/dashboard?success=true`,
-        cancel_url: `${window.location.origin}/billing?canceled=true`,
-      })
-      
-      // Redirect to Stripe checkout
-      window.location.href = response.checkout_url
+      // Use simpler endpoint for premium, legacy endpoint for pro/elite
+      if (plan.toLowerCase() === "premium") {
+        const response = await billingAPI.checkout()
+        if (response.url) {
+          window.location.href = response.url
+        } else {
+          throw new Error("No checkout URL returned")
+        }
+      } else {
+        const response = await billingAPI.createCheckoutSession({
+          plan: plan.toLowerCase(),
+          success_url: `${window.location.origin}/dashboard?success=true`,
+          cancel_url: `${window.location.origin}/billing?canceled=true`,
+        })
+        window.location.href = response.checkout_url
+      }
     } catch (err) {
       setLoading(null)
       if (err instanceof APIError) {
@@ -138,12 +146,15 @@ export default function BillingPage() {
     setLoading("manage")
     
     try {
-      const response = await billingAPI.createPortalSession({
-        return_url: `${window.location.origin}/billing`,
-      })
+      // Use simpler portal endpoint
+      const response = await billingAPI.portal()
       
       // Redirect to Stripe portal
-      window.location.href = response.url
+      if (response.url) {
+        window.location.href = response.url
+      } else {
+        throw new Error("No portal URL returned")
+      }
     } catch (err) {
       setLoading(null)
       if (err instanceof APIError) {

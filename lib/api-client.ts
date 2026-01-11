@@ -428,6 +428,21 @@ export const usageAPI = {
 
 // Billing API
 export const billingAPI = {
+  // Simple checkout endpoint (defaults to premium)
+  checkout: async (): Promise<{ url: string }> => {
+    return apiRequest<{ url: string }>("/billing/checkout", {
+      method: "POST",
+    })
+  },
+
+  // Simple portal endpoint
+  portal: async (): Promise<{ url: string }> => {
+    return apiRequest<{ url: string }>("/billing/portal", {
+      method: "POST",
+    })
+  },
+
+  // Legacy endpoints (kept for backward compatibility)
   createCheckoutSession: async (data: {
     plan: string
     success_url: string
