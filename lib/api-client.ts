@@ -447,7 +447,33 @@ export const usageAPI = {
 
 // Billing API
 export const billingAPI = {
-  // Simple checkout endpoint (defaults to premium)
+  /**
+   * Create checkout session for plan upgrade.
+   * Calls: POST /api/v1/billing/create-checkout-session
+   */
+  createCheckout: async (payload: {
+    plan: string
+    success_url: string
+    cancel_url: string
+  }): Promise<{ checkout_url: string }> => {
+    return apiRequest<{ checkout_url: string }>("/billing/create-checkout-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+  },
+  
+  /**
+   * Create customer portal session.
+   * Calls: POST /api/v1/billing/create-portal-session
+   */
+  createPortal: async (payload: { return_url: string }): Promise<{ portal_url: string }> => {
+    return apiRequest<{ portal_url: string }>("/billing/create-portal-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+  },
+  
+  // Legacy simple checkout endpoint (defaults to premium)
   checkout: async (): Promise<{ url: string }> => {
     return apiRequest<{ url: string }>("/billing/checkout", {
       method: "POST",

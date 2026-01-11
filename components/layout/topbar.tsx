@@ -105,17 +105,17 @@ export function Topbar() {
         {user && (
           <div className="flex items-center gap-2">
             <Badge
-              variant={user.plan === "premium" ? "default" : "outline"}
+              variant={user.plan === "pro" || user.plan === "elite" || user.plan === "premium" ? "default" : "outline"}
               className="text-xs"
             >
-              {user.plan === "premium" ? "Premium" : "Free"}
+              {user.plan === "elite" ? "Elite" : user.plan === "pro" || user.plan === "premium" ? "Pro" : "Free"}
             </Badge>
-            {user.plan !== "premium" && user.usage && (
+            {(user.plan === "free" || !user.plan) && user.usage && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>AI: {user.usage.used}/{user.usage.limit}</span>
               </div>
             )}
-            {user.plan !== "premium" && (
+            {(user.plan === "free" || !user.plan) && (
               <Button
                 variant="default"
                 size="sm"
