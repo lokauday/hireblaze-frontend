@@ -130,17 +130,17 @@ export function CompanyPackDrawer({ open, onOpenChange, job }: CompanyPackDrawer
   if (!job) return null
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             Company Research Pack
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             Research insights for {job.company} - {job.title}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="mt-6 space-y-6">
           {loading && !pack ? (
