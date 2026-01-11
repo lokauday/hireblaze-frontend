@@ -317,7 +317,7 @@ export default function PricingPage() {
                       <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                     ))}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-4">"{testimonial.content}"</p>
+                  <p className="text-sm text-muted-foreground mb-4">&ldquo;{testimonial.content}&rdquo;</p>
                   <div>
                     <p className="font-semibold text-sm">{testimonial.name}</p>
                     <p className="text-xs text-muted-foreground">{testimonial.role}</p>
