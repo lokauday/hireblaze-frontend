@@ -30,6 +30,44 @@ export default function SettingsPage() {
     router.push("/login")
   }
 
+  const handleManageBilling = async () => {
+    setBillingLoading(true)
+    
+    try {
+      const response = await billingAPI.portal()
+      
+      if (response.url) {
+        window.location.href = response.url
+      } else {
+        throw new Error("No portal URL returned")
+      }
+    } catch (err) {
+      setBillingLoading(false)
+      if (err instanceof APIError) {
+        const detail = err.detail?.detail || err.detail?.error || err.message
+        if (err.status === 400 && typeof detail === "string" && detail.includes("subscription")) {
+          toast({
+            title: "No active subscription",
+            description: "You need an active subscription to manage billing.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Failed to create portal session",
+            description: typeof detail === "string" ? detail : "Make sure you have an active subscription.",
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create portal session. Please try again later.",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <motion.div
