@@ -92,6 +92,26 @@ export interface TransformResponse {
   }
 }
 
+export interface JobPackRequest {
+  resume_id?: number
+  job_id?: number
+  resume_text?: string
+  jd_text?: string
+  company?: string
+  job_title?: string
+}
+
+export interface JobPackResponse {
+  resume_doc_id?: number
+  cover_letter_doc_id?: number
+  outreach_doc_id?: number
+  interview_pack_doc_id?: number
+  resume_preview: string
+  cover_letter_preview: string
+  outreach_preview: string
+  interview_pack_preview: string
+}
+
 export const aiAPI = {
   /**
    * Analyze job match between resume and job description.
@@ -138,6 +158,16 @@ export const aiAPI = {
    */
   transformText: async (data: TransformRequest): Promise<TransformResponse> => {
     return apiRequest<TransformResponse>('/ai/transform', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  /**
+   * Generate complete application pack for a job (resume, cover letter, outreach, interview pack).
+   */
+  jobPack: async (data: JobPackRequest): Promise<JobPackResponse> => {
+    return apiRequest<JobPackResponse>('/ai/job-pack', {
       method: 'POST',
       body: JSON.stringify(data),
     })
