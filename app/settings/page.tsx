@@ -11,7 +11,6 @@ import { User, Eye, EyeOff, Key, LogOut, CreditCard } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { useState } from "react"
 import { billingAPI, APIError } from "@/lib/api-client"
 
 export default function SettingsPage() {
