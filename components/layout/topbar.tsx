@@ -27,8 +27,22 @@ export function Topbar() {
   const [aiStatus, setAiStatus] = useState<"checking" | "configured" | "not_configured">("checking")
 
   useEffect(() => {
-    const currentUser = auth.getUser()
-    setUser(currentUser)
+    const loadUser = async () => {
+      const currentUser = auth.getUser()
+      setUser(currentUser)
+      
+      // Refresh user info to get latest plan and usage
+      try {
+        const refreshed = await auth.refreshMe()
+        if (refreshed) {
+          setUser(refreshed)
+        }
+      } catch (err) {
+        // Silently fail - use cached user
+      }
+    }
+    
+    loadUser()
     
     // Check AI configuration status (client-side only)
     if (typeof window !== "undefined") {
@@ -87,14 +101,31 @@ export function Topbar() {
           </Button>
         </div>
 
-        {/* Plan Badge */}
+        {/* Plan Badge + Usage Meter */}
         {user && (
-          <Badge
-            variant={user.plan === "premium" ? "default" : "outline"}
-            className="text-xs"
-          >
-            {user.plan === "premium" ? "Premium" : "Free"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={user.plan === "premium" ? "default" : "outline"}
+              className="text-xs"
+            >
+              {user.plan === "premium" ? "Premium" : "Free"}
+            </Badge>
+            {user.plan !== "premium" && user.usage && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>AI: {user.usage.used}/{user.usage.limit}</span>
+              </div>
+            )}
+            {user.plan !== "premium" && (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => router.push("/pricing")}
+              >
+                Upgrade
+              </Button>
+            )}
+          </div>
         )}
 
         {/* AI Status Indicator (only in development) */}

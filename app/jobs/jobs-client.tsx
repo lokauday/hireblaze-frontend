@@ -210,6 +210,70 @@ export function JobsClient() {
     }
   }
 
+  const handleGenerateJobPack = async (job: Job) => {
+    if (!selectedResumeId) {
+      toast({
+        title: "Resume required",
+        description: "Please select a resume first to generate the application pack.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const { aiAPI } = await import("@/lib/api/ai")
+      const { auth } = await import("@/lib/auth")
+      const user = auth.getUser()
+      
+      // Check if user is premium
+      if (user?.plan !== "premium") {
+        // This will be handled by premium lock component, but we can also check here
+        toast({
+          title: "Premium required",
+          description: "Generate Application Pack is a premium feature. Please upgrade to continue.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await aiAPI.jobPack({
+        resume_id: parseInt(selectedResumeId),
+        job_id: job.id,
+        company: job.company,
+        job_title: job.title,
+      })
+
+      const docCount = [
+        response.resume_doc_id,
+        response.cover_letter_doc_id,
+        response.outreach_doc_id,
+        response.interview_pack_doc_id,
+      ].filter((id) => id !== null && id !== undefined).length
+
+      toast({
+        title: "Application Pack Generated!",
+        description: `${docCount} documents created and saved to your Drive.`,
+      })
+
+      // Refresh usage
+      auth.refreshMe()
+    } catch (error: any) {
+      if (error.status === 402) {
+        toast({
+          title: "Premium required",
+          description: "Generate Application Pack is a premium feature. Please upgrade to continue.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Failed to generate pack",
+          description: error.message || "Please try again later.",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
   // Statistics
   const stats = {
     total: jobs.length,
@@ -359,6 +423,7 @@ export function JobsClient() {
               onViewInsights={handleViewInsights}
               onGenerateOutreach={handleGenerateOutreach}
               onInterviewPack={handleInterviewPack}
+              onGenerateJobPack={handleGenerateJobPack}
               parsingJobId={parsingJobId}
             />
           ) : (

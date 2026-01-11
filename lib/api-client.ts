@@ -402,6 +402,25 @@ export const authAPI = {
       }
     }>(res)
   },
+
+  /**
+   * Get current authenticated user information including plan and usage.
+   * Calls: GET {BASE}/api/v1/auth/me
+   */
+  getMe: async () => {
+    return apiRequest<{
+      id: number
+      email: string
+      full_name: string
+      plan: string
+      usage: {
+        used: number
+        limit: number
+      }
+    }>('/auth/me', {
+      method: 'GET',
+    })
+  },
 }
 
 // Usage API

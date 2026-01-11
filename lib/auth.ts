@@ -6,6 +6,10 @@ export interface User {
   full_name: string
   visa_status?: string
   plan?: string
+  usage?: {
+    used: number
+    limit: number
+  }
 }
 
 export const auth = {
@@ -14,13 +18,26 @@ export const auth = {
     if (response.access_token) {
       // Always store token immediately
       localStorage.setItem('token', response.access_token)
-      // Store basic user info (we'll get full details from API if needed)
-      const user: User = {
-        id: 0,
-        email,
-        full_name: email.split('@')[0], // Temporary until we have /me endpoint
+      // Fetch full user info including plan and usage
+      try {
+        const me = await authAPI.getMe()
+        const user: User = {
+          id: me.id,
+          email: me.email,
+          full_name: me.full_name,
+          plan: me.plan,
+          usage: me.usage,
+        }
+        localStorage.setItem('user', JSON.stringify(user))
+      } catch (err) {
+        // Fallback: store basic user info if /me fails
+        const user: User = {
+          id: 0,
+          email,
+          full_name: email.split('@')[0],
+        }
+        localStorage.setItem('user', JSON.stringify(user))
       }
-      localStorage.setItem('user', JSON.stringify(user))
       return response
     }
     throw new Error('Login failed: No access token in response')
@@ -89,5 +106,29 @@ export const auth = {
     if (typeof window === 'undefined') return false
     
     return !!localStorage.getItem('token')
+  },
+
+  /**
+   * Refresh user info from /auth/me endpoint.
+   * Updates stored user data including plan and usage.
+   */
+  refreshMe: async (): Promise<User | null> => {
+    if (typeof window === 'undefined') return null
+    
+    try {
+      const me = await authAPI.getMe()
+      const user: User = {
+        id: me.id,
+        email: me.email,
+        full_name: me.full_name,
+        plan: me.plan,
+        usage: me.usage,
+      }
+      localStorage.setItem('user', JSON.stringify(user))
+      return user
+    } catch (err) {
+      console.error('Failed to refresh user info:', err)
+      return null
+    }
   },
 }

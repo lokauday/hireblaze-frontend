@@ -14,6 +14,8 @@ import {
   Send,
   FileText,
   Sparkles,
+  Lock,
+  Package,
 } from "lucide-react"
 import {
   Table,
@@ -34,6 +36,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Job } from "@/lib/api/jobs"
 import { cn } from "@/lib/utils"
+import { auth } from "@/lib/auth"
 
 interface JobTableProps {
   jobs: Job[]
@@ -42,6 +45,7 @@ interface JobTableProps {
   onViewInsights?: (job: Job) => void
   onGenerateOutreach?: (job: Job) => void
   onInterviewPack?: (job: Job) => void
+  onGenerateJobPack?: (job: Job) => void
   parsingJobId?: number | null
   className?: string
 }
@@ -78,6 +82,7 @@ export function JobTable({
   onViewInsights,
   onGenerateOutreach,
   onInterviewPack,
+  onGenerateJobPack,
   parsingJobId,
   className,
 }: JobTableProps) {
@@ -225,6 +230,21 @@ export function JobTable({
                       >
                         <FileText className="mr-2 h-4 w-4" />
                         Interview Pack
+                      </DropdownMenuItem>
+                    )}
+                    {onGenerateJobPack && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onGenerateJobPack(job)
+                        }}
+                        className="relative"
+                      >
+                        <Package className="mr-2 h-4 w-4" />
+                        Generate Application Pack
+                        {auth.getUser()?.plan !== "premium" && (
+                          <Lock className="ml-auto h-3 w-3 text-muted-foreground" />
+                        )}
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
