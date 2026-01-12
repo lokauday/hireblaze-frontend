@@ -6,8 +6,11 @@
 // API Configuration
 // Defaults to '/api/v1' as specified (configurable via NEXT_PUBLIC_API_PREFIX env var)
 // To disable prefix: set NEXT_PUBLIC_API_PREFIX= in .env.local
-const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX !== undefined 
-  ? process.env.NEXT_PUBLIC_API_PREFIX 
+// In Next.js, env vars are embedded at build time, so if not set, it will be undefined
+const API_PREFIX = (process.env.NEXT_PUBLIC_API_PREFIX !== undefined && 
+                     process.env.NEXT_PUBLIC_API_PREFIX !== null &&
+                     String(process.env.NEXT_PUBLIC_API_PREFIX).trim() !== '')
+  ? String(process.env.NEXT_PUBLIC_API_PREFIX).trim()
   : '/api/v1'
 
 /**
@@ -57,16 +60,14 @@ function buildAPIUrl(endpoint: string): string {
   // Normalize base URL (remove trailing slash)
   const cleanBaseUrl = baseUrl.replace(/\/+$/, '')
   
-  // Get prefix from env at runtime (reads NEXT_PUBLIC_API_PREFIX)
-  // Falls back safely if prefix missing (uses default /api/v1)
-  // Check for empty string explicitly to allow disabling prefix
-  const envPrefix = process.env.NEXT_PUBLIC_API_PREFIX
-  let prefix = envPrefix !== undefined ? envPrefix : '/api/v1'
+  // Get prefix - use module-level constant (evaluated at build time) or default to /api/v1
+  // In Next.js, env vars are embedded at build time, so use the module constant
+  let prefix = API_PREFIX || '/api/v1'
   
   // Normalize prefix (ensure starts with /, remove trailing slash)
-  prefix = prefix.trim()
-  if (prefix === '') {
-    // If prefix is explicitly empty, don't add it
+  prefix = String(prefix).trim()
+  if (prefix === '' || prefix === 'undefined' || prefix === 'null') {
+    // If prefix is explicitly empty/disabled, don't add it
     return `${cleanBaseUrl}${normalizedEndpoint}`
   }
   if (!prefix.startsWith('/')) {
@@ -82,7 +83,19 @@ function buildAPIUrl(endpoint: string): string {
   }
   
   // Always add prefix: ${BASE}${PREFIX}${endpoint}
-  return `${cleanBaseUrl}${prefix}${normalizedEndpoint}`
+  const finalUrl = `${cleanBaseUrl}${prefix}${normalizedEndpoint}`
+  
+  // Debug logging in development to verify URL construction
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log('[buildAPIUrl]', {
+      endpoint,
+      baseUrl,
+      prefix: API_PREFIX || '/api/v1',
+      finalUrl
+    })
+  }
+  
+  return finalUrl
 }
 
 // Runtime check for API URL (called on each request, not at build time)
@@ -327,9 +340,14 @@ export const authAPI = {
     form.set('username', email.trim().toLowerCase()) // OAuth2PasswordRequestForm uses 'username' field
     form.set('password', password)
     
-    // Log in development only
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-      console.log(`[Auth API] POST ${url}`)
+    // Always log the URL being used for debugging
+    if (typeof window !== 'undefined') {
+      console.log(`[Auth API] POST ${url}`, {
+        endpoint: '/auth/login',
+        baseUrl: getBaseURL(),
+        prefix: API_PREFIX || '/api/v1',
+        finalUrl: url
+      })
     }
 
     const res = await fetch(url, {
