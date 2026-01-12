@@ -50,52 +50,40 @@ function getBaseURL(): string {
  *   → https://hireblaze-api-production.up.railway.app/api/v1/auth/login
  * - BASE=https://api.example.com, prefix=/api/v1, endpoint=/usage
  *   → https://api.example.com/api/v1/usage
- * - BASE=https://api.example.com/api/v1, prefix=/api/v1, endpoint=/usage
- *   → https://api.example.com/api/v1/usage (no double prefix - checks if base ends with prefix)
  */
 function buildAPIUrl(endpoint: string): string {
-  const baseUrl = getBaseURL()
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  
   // Normalize base URL (remove trailing slash)
-  const cleanBaseUrl = baseUrl.replace(/\/+$/, '')
+  const base = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '').trim().replace(/\/+$/, '')
   
   // Get prefix - ALWAYS default to /api/v1 unless explicitly set to empty string
-  // In Next.js, env vars are embedded at build time
-  let prefix = API_PREFIX
+  let prefixRaw = (process.env.NEXT_PUBLIC_API_PREFIX ?? '/api/v1').trim()
   
-  // If prefix is undefined, null, empty, or invalid, use default /api/v1
-  if (!prefix || prefix === 'undefined' || prefix === 'null' || String(prefix).trim() === '') {
-    prefix = '/api/v1'
+  // If prefixRaw is explicitly empty string, use empty prefix (explicit disable)
+  // Otherwise, normalize prefix and ensure it defaults to /api/v1
+  let prefix: string
+  if (prefixRaw === '') {
+    prefix = '' // Explicit disable
   } else {
-    prefix = String(prefix).trim()
+    // Normalize prefix: ensure it starts with "/" and remove trailing "/"
+    prefix = prefixRaw.startsWith('/') ? prefixRaw : `/${prefixRaw}`
+    prefix = prefix.replace(/\/+$/, '')
   }
   
-  // Ensure prefix starts with /
-  if (!prefix.startsWith('/')) {
-    prefix = `/${prefix}`
-  }
+  // Normalize path to start with "/"
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
   
-  // Remove trailing slashes from prefix
-  prefix = prefix.replace(/\/+$/, '')
-  
-  // Check if base URL already ends with the prefix to avoid double-prefixing
-  // Only check exact match at the end to be safe
-  if (cleanBaseUrl.endsWith(prefix)) {
-    // Base URL already has prefix, use endpoint as-is
-    return `${cleanBaseUrl}${normalizedEndpoint}`
-  }
-  
-  // Always add prefix: ${BASE}${PREFIX}${endpoint}
-  const finalUrl = `${cleanBaseUrl}${prefix}${normalizedEndpoint}`
+  // Construct final URL: ${base}${prefix}${path}
+  // Prefix is ALWAYS applied unless explicitly set to empty string
+  // IMPORTANT: No conditional logic that skips prefix - it must always be applied
+  const finalUrl = `${base}${prefix}${path}`
   
   // Always log URL construction for debugging (helps identify issues in production)
   if (typeof window !== 'undefined') {
     console.log('[buildAPIUrl]', {
       endpoint,
-      baseUrl: cleanBaseUrl,
-      prefixUsed: prefix,
-      apiPrefixEnv: API_PREFIX,
+      base,
+      prefixUsed: prefix || '(none)',
+      apiPrefixEnv: process.env.NEXT_PUBLIC_API_PREFIX ?? '(default)',
       finalUrl
     })
   }
