@@ -60,20 +60,24 @@ function buildAPIUrl(endpoint: string): string {
   // Normalize base URL (remove trailing slash)
   const cleanBaseUrl = baseUrl.replace(/\/+$/, '')
   
-  // Get prefix - use module-level constant (evaluated at build time) or default to /api/v1
-  // In Next.js, env vars are embedded at build time, so use the module constant
-  let prefix = API_PREFIX || '/api/v1'
+  // Get prefix - ALWAYS default to /api/v1 unless explicitly set to empty string
+  // In Next.js, env vars are embedded at build time
+  let prefix = API_PREFIX
   
-  // Normalize prefix (ensure starts with /, remove trailing slash)
-  prefix = String(prefix).trim()
-  if (prefix === '' || prefix === 'undefined' || prefix === 'null') {
-    // If prefix is explicitly empty/disabled, don't add it
-    return `${cleanBaseUrl}${normalizedEndpoint}`
+  // If prefix is undefined, null, empty, or invalid, use default /api/v1
+  if (!prefix || prefix === 'undefined' || prefix === 'null' || String(prefix).trim() === '') {
+    prefix = '/api/v1'
+  } else {
+    prefix = String(prefix).trim()
   }
+  
+  // Ensure prefix starts with /
   if (!prefix.startsWith('/')) {
     prefix = `/${prefix}`
   }
-  prefix = prefix.replace(/\/+$/, '') // Remove trailing slashes
+  
+  // Remove trailing slashes from prefix
+  prefix = prefix.replace(/\/+$/, '')
   
   // Check if base URL already ends with the prefix to avoid double-prefixing
   // Only check exact match at the end to be safe
@@ -85,12 +89,13 @@ function buildAPIUrl(endpoint: string): string {
   // Always add prefix: ${BASE}${PREFIX}${endpoint}
   const finalUrl = `${cleanBaseUrl}${prefix}${normalizedEndpoint}`
   
-  // Debug logging in development to verify URL construction
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // Always log URL construction for debugging (helps identify issues in production)
+  if (typeof window !== 'undefined') {
     console.log('[buildAPIUrl]', {
       endpoint,
-      baseUrl,
-      prefix: API_PREFIX || '/api/v1',
+      baseUrl: cleanBaseUrl,
+      prefixUsed: prefix,
+      apiPrefixEnv: API_PREFIX,
       finalUrl
     })
   }
