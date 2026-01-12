@@ -40,49 +40,49 @@ function getBaseURL(): string {
 
 /**
  * Build full API URL with prefix.
- * Handles cases where base URL may already include the prefix to avoid double-prefixing.
+ * Ensures ALL requests use: ${NEXT_PUBLIC_API_URL}${API_PREFIX}${path}
  * 
  * Examples:
+ * - BASE=https://hireblaze-api-production.up.railway.app, prefix=/api/v1, endpoint=/auth/login
+ *   → https://hireblaze-api-production.up.railway.app/api/v1/auth/login
  * - BASE=https://api.example.com, prefix=/api/v1, endpoint=/usage
  *   → https://api.example.com/api/v1/usage
  * - BASE=https://api.example.com/api/v1, prefix=/api/v1, endpoint=/usage
- *   → https://api.example.com/api/v1/usage (no double prefix)
+ *   → https://api.example.com/api/v1/usage (no double prefix - checks if base ends with prefix)
  */
 function buildAPIUrl(endpoint: string): string {
   const baseUrl = getBaseURL()
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
   
   // Normalize base URL (remove trailing slash)
-  let cleanBaseUrl = baseUrl.replace(/\/+$/, '') // Remove one or more trailing slashes
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, '')
   
-  // If prefix is empty string, return base URL + endpoint directly (no prefix)
-  if (!API_PREFIX || API_PREFIX.trim() === '') {
-    return `${cleanBaseUrl}${normalizedEndpoint}`
-  }
+  // Get prefix from env at runtime (reads NEXT_PUBLIC_API_PREFIX)
+  // Falls back safely if prefix missing (uses default /api/v1)
+  // Check for empty string explicitly to allow disabling prefix
+  const envPrefix = process.env.NEXT_PUBLIC_API_PREFIX
+  let prefix = envPrefix !== undefined ? envPrefix : '/api/v1'
   
   // Normalize prefix (ensure starts with /, remove trailing slash)
-  let normalizedPrefix = API_PREFIX.trim()
-  if (!normalizedPrefix.startsWith('/')) {
-    normalizedPrefix = `/${normalizedPrefix}`
+  prefix = prefix.trim()
+  if (prefix === '') {
+    // If prefix is explicitly empty, don't add it
+    return `${cleanBaseUrl}${normalizedEndpoint}`
   }
-  normalizedPrefix = normalizedPrefix.replace(/\/+$/, '') // Remove trailing slashes
+  if (!prefix.startsWith('/')) {
+    prefix = `/${prefix}`
+  }
+  prefix = prefix.replace(/\/+$/, '') // Remove trailing slashes
   
-  // Check if base URL already ends with the normalized prefix to avoid double-prefixing
-  // Also check for common variations
-  const baseEndsWithPrefix = cleanBaseUrl.endsWith(normalizedPrefix) || 
-                             cleanBaseUrl.endsWith('/api/v1')
-  
-  // Also check if base URL contains the prefix somewhere (more lenient check)
-  const baseContainsPrefix = cleanBaseUrl.includes('/api/v1/') || 
-                            (normalizedPrefix === '/api/v1' && cleanBaseUrl.includes('/api/v1'))
-  
-  if (baseEndsWithPrefix || baseContainsPrefix) {
+  // Check if base URL already ends with the prefix to avoid double-prefixing
+  // Only check exact match at the end to be safe
+  if (cleanBaseUrl.endsWith(prefix)) {
     // Base URL already has prefix, use endpoint as-is
     return `${cleanBaseUrl}${normalizedEndpoint}`
-  } else {
-    // Add prefix before endpoint: ${BASE}${PREFIX}${endpoint}
-    return `${cleanBaseUrl}${normalizedPrefix}${normalizedEndpoint}`
   }
+  
+  // Always add prefix: ${BASE}${PREFIX}${endpoint}
+  return `${cleanBaseUrl}${prefix}${normalizedEndpoint}`
 }
 
 // Runtime check for API URL (called on each request, not at build time)
