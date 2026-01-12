@@ -14,33 +14,41 @@ export interface User {
 
 export const auth = {
   login: async (email: string, password: string) => {
-    const response = await authAPI.login(email, password)
-    if (response.access_token) {
-      // Always store token immediately
-      localStorage.setItem('token', response.access_token)
-      // Fetch full user info including plan and usage
-      try {
-        const me = await authAPI.getMe()
-        const user: User = {
-          id: me.id,
-          email: me.email,
-          full_name: me.full_name,
-          plan: me.plan,
-          usage: me.usage,
+    try {
+      const response = await authAPI.login(email, password)
+      if (response.access_token) {
+        // Always store token immediately
+        localStorage.setItem('token', response.access_token)
+        // Fetch full user info including plan and usage
+        try {
+          const me = await authAPI.getMe()
+          const user: User = {
+            id: me.id,
+            email: me.email,
+            full_name: me.full_name,
+            plan: me.plan,
+            usage: me.usage,
+          }
+          localStorage.setItem('user', JSON.stringify(user))
+        } catch (err) {
+          // Fallback: store basic user info if /me fails
+          // Log error but don't throw - login was successful
+          console.warn('Failed to fetch user info after login, using fallback:', err)
+          const user: User = {
+            id: 0,
+            email,
+            full_name: email.split('@')[0],
+          }
+          localStorage.setItem('user', JSON.stringify(user))
         }
-        localStorage.setItem('user', JSON.stringify(user))
-      } catch (err) {
-        // Fallback: store basic user info if /me fails
-        const user: User = {
-          id: 0,
-          email,
-          full_name: email.split('@')[0],
-        }
-        localStorage.setItem('user', JSON.stringify(user))
+        return response
       }
-      return response
+      throw new Error('Login failed: No access token in response')
+    } catch (err) {
+      // Re-throw to let the caller handle it
+      console.error('Login error:', err)
+      throw err
     }
-    throw new Error('Login failed: No access token in response')
   },
 
   signup: async (data: {

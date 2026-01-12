@@ -431,18 +431,30 @@ export const authAPI = {
    * Calls: GET {BASE}/api/v1/auth/me
    */
   getMe: async () => {
-    return apiRequest<{
-      id: number
-      email: string
-      full_name: string
-      plan: string
-      usage: {
-        used: number
-        limit: number
+    try {
+      return await apiRequest<{
+        id: number
+        email: string
+        full_name: string
+        plan: string
+        usage: {
+          used: number
+          limit: number
+        }
+      }>('/auth/me', {
+        method: 'GET',
+      })
+    } catch (err: any) {
+      // Log error for debugging but re-throw to let caller handle
+      if (typeof window !== 'undefined') {
+        console.error('[authAPI.getMe] Error fetching user info:', {
+          status: err?.status,
+          message: err?.message,
+          detail: err?.detail
+        })
       }
-    }>('/auth/me', {
-      method: 'GET',
-    })
+      throw err
+    }
   },
 }
 
